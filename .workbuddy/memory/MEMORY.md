@@ -43,7 +43,12 @@
 - `project-scope.md`：需求定义文档。原始需求在上，确认后的结论在下（「需求细化」章节）。
 - `design/ued.md`：**UED 设计规范 v1**（设计令牌、组件清单、页面流程、逐屏说明含 Figma Frame/Auto Layout 建议、给开发的标注要点）。
 - `design/prototype.html`：**可交互高保真原型**，含 11 个界面（登录 / 首页含未导入态 / 导入 / 解析结果 / 背诵 / 复习选范围 / 复习待录 / 录音中 / 对照答案 / 我的），顶部标签切换，手机浏览器可直接打开。
+- `design/svg/`：**11 个界面 SVG**（390×844），可直接拖进 Figma 变可编辑矢量图层（零安装路径）。
+- `design/preview/`：**11 张 PNG 预览图**，仅用于看，不可编辑。
+- `design/build-svg.js`：**SVG 生成脚本**（纯 Node，无第三方依赖）。改设计只改这一个文件，运行 `node design/build-svg.js` 重新输出。
 - `figma-plugin/`：**Figma 设计稿生成插件**（`manifest.json` + `code.js`，约 1110 行）。在 Figma 桌面端「导入 manifest」后运行，会原生生成 4 个页面：Design Tokens（13 个 Paint Style + 7 个 Text Style）、Components（9 组组件含变体）、Screens（11 个 390×844 界面 + 原型跳转连线）、Prototype（流程说明）。**环境里没有 Figma 写入接口，这是产出真 Figma 设计稿的唯一可行路径。** 安装说明在 `design/ued.md` 第八节。
+- **Figma 交付共三条路**（内容一致）：① 插件（可编辑+组件+Auto Layout，需 Figma 桌面端）② SVG 拖入（可编辑但扁平，零安装）③ PNG（只看）。对照表在 `design/ued.md` 第八节。
+- **重要认知：`Figma Framelink MCP` 是只读的**（`get_figma_data` 读文件、`download_figma_images` 下图），**不能建稿**，只适合「已有 Figma 稿 → 生成代码」的方向。Figma 官方也只通过 Plugin API 开放写能力。
 - **版本控制**：git 仓库，主分支 `main`。`.gitignore` 忽略 `node_modules/`、`dist/`、`build/`、`.DS_Store`、`*.log`、`.env*`。`.workbuddy/`（项目记忆）已纳入版本控制。
 
 ## 当前卡点

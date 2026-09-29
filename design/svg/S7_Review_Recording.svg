@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<rect x="0" y="0" width="390" height="844" fill="#F5F6F8"/>
+<text x="30" y="27" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="13" font-weight="600" fill="#141A23" text-anchor="start">9:41</text>
+<rect x="331" y="17" width="15" height="9" rx="1.5" fill="#141A23"/>
+<rect x="350" y="16" width="22" height="10" rx="3" fill="none" stroke="#141A23" stroke-width="1"/>
+<rect x="128" y="830" width="134" height="5" rx="3" fill="#141A23" fill-opacity="0.22"/>
+<rect x="0" y="0" width="390" height="44" fill="#F5F6F8"/>
+<path d="M31 59 L22 66 L31 73" fill="none" stroke="#141A23" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="58" y="79" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="500" fill="#141A23" text-anchor="start">复习 · 第 12 / 240 题</text>
+<rect x="316" y="56" width="54" height="32" rx="16" fill="#EFF4FF" stroke="#2563EB" stroke-width="0.5"/>
+<text x="343" y="77" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#2563EB" text-anchor="middle">顺序</text>
+<rect x="256" y="56" width="54" height="32" rx="16" fill="#FFFFFF" stroke="#E6E9EE" stroke-width="0.5"/>
+<text x="283" y="77" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="13" font-weight="400" fill="#69737F" text-anchor="middle">随机</text>
+<rect x="20" y="100" width="350" height="3" fill="#F0F2F5"/>
+<rect x="20" y="100" width="17.5" height="3" fill="#2563EB"/>
+<text x="20" y="143" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="22" font-weight="600" fill="#141A23" text-anchor="start">什么是闭包？请结合你项目里的例</text><text x="20" y="175" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="22" font-weight="600" fill="#141A23" text-anchor="start">子说明。</text>
+<rect x="20" y="204" width="350" height="40" rx="12" fill="#FDEDED"/>
+<circle cx="140" cy="224" r="4" fill="#E5484D"/>
+<text x="177" y="229" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="13" font-weight="400" fill="#E5484D" text-anchor="middle">录音中</text>
+<text x="236" y="229" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="13" font-weight="400" fill="#E5484D" text-anchor="middle">00:14</text>
+<rect x="134" y="283" width="2" height="8" rx="1" fill="#E5484D"/>
+<rect x="139" y="275.5" width="2" height="23" rx="1" fill="#E5484D"/>
+<rect x="144" y="281" width="2" height="12" rx="1" fill="#E5484D"/>
+<rect x="149" y="276" width="2" height="22" rx="1" fill="#E5484D"/>
+<rect x="154" y="279.5" width="2" height="15" rx="1" fill="#E5484D"/>
+<rect x="159" y="277" width="2" height="20" rx="1" fill="#E5484D"/>
+<rect x="164" y="278" width="2" height="18" rx="1" fill="#E5484D"/>
+<rect x="169" y="278.5" width="2" height="17" rx="1" fill="#E5484D"/>
+<rect x="174" y="276.5" width="2" height="21" rx="1" fill="#E5484D"/>
+<rect x="179" y="280" width="2" height="14" rx="1" fill="#E5484D"/>
+<rect x="184" y="276" width="2" height="22" rx="1" fill="#E5484D"/>
+<rect x="189" y="282" width="2" height="10" rx="1" fill="#E5484D"/>
+<rect x="194" y="275.5" width="2" height="23" rx="1" fill="#E5484D"/>
+<rect x="199" y="282" width="2" height="10" rx="1" fill="#E5484D"/>
+<rect x="204" y="275.5" width="2" height="23" rx="1" fill="#E5484D"/>
+<rect x="209" y="280.5" width="2" height="13" rx="1" fill="#E5484D"/>
+<rect x="214" y="276.5" width="2" height="21" rx="1" fill="#E5484D"/>
+<rect x="219" y="278.5" width="2" height="17" rx="1" fill="#E5484D"/>
+<rect x="224" y="277.5" width="2" height="19" rx="1" fill="#E5484D"/>
+<rect x="229" y="277" width="2" height="20" rx="1" fill="#E5484D"/>
+<rect x="234" y="279" width="2" height="16" rx="1" fill="#E5484D"/>
+<rect x="239" y="276" width="2" height="22" rx="1" fill="#E5484D"/>
+<rect x="244" y="281" width="2" height="12" rx="1" fill="#E5484D"/>
+<rect x="249" y="275.5" width="2" height="23" rx="1" fill="#E5484D"/>
+<circle cx="195" cy="690" r="44" fill="#E5484D"/>
+<rect x="190" y="674" width="10" height="22" rx="5" fill="#FFFFFF"/>
+<path d="M180 692 a15 15 0 0 0 30 0" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M195 707 L195 714" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+<rect x="105" y="748" width="180" height="50" rx="12" fill="#FFFFFF" stroke="#E6E9EE" stroke-width="0.5"/>
+<text x="195" y="778" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="500" fill="#141A23" text-anchor="middle">说完了</text>
+</svg>

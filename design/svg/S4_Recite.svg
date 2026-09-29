@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<rect x="0" y="0" width="390" height="844" fill="#F5F6F8"/>
+<text x="30" y="27" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="13" font-weight="600" fill="#141A23" text-anchor="start">9:41</text>
+<rect x="331" y="17" width="15" height="9" rx="1.5" fill="#141A23"/>
+<rect x="350" y="16" width="22" height="10" rx="3" fill="none" stroke="#141A23" stroke-width="1"/>
+<rect x="128" y="830" width="134" height="5" rx="3" fill="#141A23" fill-opacity="0.22"/>
+<rect x="0" y="0" width="390" height="44" fill="#F5F6F8"/>
+<path d="M31 59 L22 66 L31 73" fill="none" stroke="#141A23" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="58" y="79" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="500" fill="#141A23" text-anchor="start">第 12 / 240 题</text>
+<rect x="316" y="56" width="54" height="32" rx="16" fill="#EFF4FF" stroke="#2563EB" stroke-width="0.5"/>
+<text x="343" y="77" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="13" font-weight="500" fill="#2563EB" text-anchor="middle">顺序</text>
+<rect x="256" y="56" width="54" height="32" rx="16" fill="#FFFFFF" stroke="#E6E9EE" stroke-width="0.5"/>
+<text x="283" y="77" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="13" font-weight="400" fill="#69737F" text-anchor="middle">随机</text>
+<rect x="20" y="100" width="350" height="3" fill="#F0F2F5"/>
+<rect x="20" y="100" width="17.5" height="3" fill="#2563EB"/>
+<rect x="20" y="120" width="350" height="368" rx="16" fill="#FFFFFF" stroke="#E6E9EE" stroke-width="0.5"/>
+<text x="36" y="167" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="22" font-weight="600" fill="#141A23" text-anchor="start">什么是闭包？请结合你项目里的</text><text x="36" y="199" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="22" font-weight="600" fill="#141A23" text-anchor="start">例子说明。</text>
+<rect x="36" y="222" width="318" height="1" fill="#E6E9EE"/>
+<text x="36" y="256" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="400" fill="#69737F" text-anchor="start">闭包是函数和它定义时所在作用域的组合。</text><text x="36" y="282" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="400" fill="#69737F" text-anchor="start"></text><text x="36" y="308" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="400" fill="#69737F" text-anchor="start">内部函数可以访问外部函数的变量，即使外部函</text><text x="36" y="334" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="400" fill="#69737F" text-anchor="start">数已经执行完毕，这些变量也不会被回收。</text><text x="36" y="360" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="400" fill="#69737F" text-anchor="start"></text><text x="36" y="386" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="400" fill="#69737F" text-anchor="start">典型用途：封装私有变量、函数柯里化、防抖节</text><text x="36" y="412" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="400" fill="#69737F" text-anchor="start">流里保存定时器 id。</text>
+<rect x="36" y="433" width="318" height="1" fill="#E6E9EE"/>
+<text x="36" y="460" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="11" font-weight="400" fill="#98A1AC" text-anchor="start">答案与题目同屏显示，先自己过一遍再看</text>
+<rect x="20" y="754" width="169" height="50" rx="12" fill="#FFFFFF" stroke="#E6E9EE" stroke-width="0.5"/>
+<text x="105" y="784" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="500" fill="#141A23" text-anchor="middle">上一题</text>
+<rect x="201" y="754" width="169" height="50" rx="12" fill="#2563EB"/>
+<text x="286" y="784" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="500" fill="#FFFFFF" text-anchor="middle">下一题</text>
+</svg>

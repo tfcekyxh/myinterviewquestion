@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<rect x="0" y="0" width="390" height="844" fill="#F5F6F8"/>
+<text x="30" y="27" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="13" font-weight="600" fill="#141A23" text-anchor="start">9:41</text>
+<rect x="331" y="17" width="15" height="9" rx="1.5" fill="#141A23"/>
+<rect x="350" y="16" width="22" height="10" rx="3" fill="none" stroke="#141A23" stroke-width="1"/>
+<rect x="128" y="830" width="134" height="5" rx="3" fill="#141A23" fill-opacity="0.22"/>
+<rect x="0" y="0" width="390" height="44" fill="#F5F6F8"/>
+<path d="M31 59 L22 66 L31 73" fill="none" stroke="#141A23" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="58" y="81" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="17" font-weight="600" fill="#141A23" text-anchor="start">我的</text>
+<rect x="20" y="118" width="350" height="76" rx="16" fill="#FFFFFF" stroke="#E6E9EE" stroke-width="0.5"/>
+<circle cx="58" cy="156" r="22" fill="#EFF4FF"/>
+<text x="58" y="162" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="600" fill="#2563EB" text-anchor="middle">K</text>
+<text x="92" y="151" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="500" fill="#141A23" text-anchor="start">kaozhen</text>
+<text x="92" y="172" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="11" font-weight="400" fill="#98A1AC" text-anchor="start">已登录 · 进度自动同步</text>
+<rect x="20" y="210" width="350" height="170" rx="16" fill="#FFFFFF" stroke="#E6E9EE" stroke-width="0.5"/>
+<text x="36" y="241" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="400" fill="#141A23" text-anchor="start">题库</text>
+<text x="36" y="262" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="13" font-weight="400" fill="#69737F" text-anchor="start">面试题库.pdf · 240 题</text>
+<text x="354" y="244" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="13" font-weight="400" fill="#2563EB" text-anchor="end">重新导入</text>
+<rect x="36" y="266" width="318" height="1" fill="#E6E9EE"/>
+<text x="36" y="297" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="400" fill="#141A23" text-anchor="start">背诵进度</text>
+<text x="36" y="318" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="13" font-weight="400" fill="#69737F" text-anchor="start">已背 128 / 240</text>
+<text x="354" y="300" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="13" font-weight="400" fill="#2563EB" text-anchor="end">重置</text>
+<rect x="36" y="322" width="318" height="1" fill="#E6E9EE"/>
+<text x="36" y="353" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="400" fill="#141A23" text-anchor="start">录音存储</text>
+<text x="36" y="374" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="13" font-weight="400" fill="#69737F" text-anchor="start">仅保存在本机，不上传</text>
+<text x="354" y="356" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="13" font-weight="400" fill="#98A1AC" text-anchor="end">待定</text>
+<rect x="20" y="396" width="350" height="50" rx="12" fill="#FFFFFF" stroke="#E6E9EE" stroke-width="0.5"/>
+<text x="195" y="426" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif" font-size="15" font-weight="500" fill="#E5484D" text-anchor="middle">退出登录</text>
+</svg>
