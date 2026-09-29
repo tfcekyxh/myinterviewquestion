@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>面试题背诵 · 界面原型</title>
+<style>
+:root{
+  --primary:#2563EB; --primary-soft:#EFF4FF;
+  --success:#0E9F6E; --success-soft:#E9F7F1;
+  --danger:#E5484D; --danger-soft:#FDEDED;
+  --bg:#F5F6F8; --surface:#FFFFFF; --surface-2:#F0F2F5;
+  --t1:#141A23; --t2:#69737F; --t3:#98A1AC; --line:#E6E9EE;
+  --r-s:8px; --r-m:12px; --r-l:16px; --r-xl:22px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:-apple-system,"PingFang SC","SF Pro Text","Helvetica Neue",sans-serif;
+  background:#EDEFF3;color:var(--t1);display:flex;flex-direction:column;min-height:100vh;
+}
+.topbar{padding:18px 20px 10px}
+.brand{font-size:13px;color:var(--t2);margin-bottom:12px}
+.brand b{color:var(--t1);font-weight:600}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  flex:none;font:inherit;font-size:13px;padding:7px 13px;border-radius:999px;
+  border:.5px solid var(--line);background:var(--surface);color:var(--t2);cursor:pointer;white-space:nowrap
+}
+.tab.on{background:var(--t1);border-color:var(--t1);color:#fff}
+.stage{flex:1;display:flex;align-items:center;justify-content:center;padding:10px 20px 28px}
+
+.device{
+  width:390px;height:min(844px,calc(100vh - 168px));flex:none;background:var(--bg);
+  border-radius:44px;border:10px solid #161A22;overflow:hidden;
+  display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(20,26,35,.18)
+}
+.statusbar{
+  flex:none;height:44px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 26px 0 30px;font-size:13px;font-weight:500;background:var(--bg)
+}
+.sb-icons{display:flex;align-items:center;gap:5px}
+.sb-icons i{display:block;background:var(--t1);border-radius:1px}
+.sb-sig{width:15px;height:9px;clip-path:polygon(0 70%,18% 70%,18% 100%,0 100%,0 70%,28% 45%,46% 45%,46% 100%,28% 100%,28% 45%,56% 22%,74% 22%,74% 100%,56% 100%,56% 22%,84% 0,100% 0,100% 100%,84% 100%)}
+.sb-bat{width:22px;height:10px;border:1px solid var(--t1);background:none!important;border-radius:2.5px;position:relative}
+.sb-bat::after{content:"";position:absolute;inset:1.5px;width:70%;background:var(--t1);border-radius:1px}
+
+#app{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.home-ind{flex:none;height:22px;background:var(--bg);display:flex;align-items:center;justify-content:center}
+.home-ind::after{content:"";width:134px;height:5px;border-radius:3px;background:var(--t1);opacity:.22}
+
+.navbar{flex:none;height:56px;display:flex;align-items:center;gap:4px;padding:0 12px;background:var(--bg)}
+.nav-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--t1);cursor:pointer;border-radius:10px}
+.nav-title{font-size:17px;font-weight:600;flex:1}
+.nav-title.center{text-align:center;padding-right:36px}
+
+.content{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:20px}
+.content.tight{gap:12px}
+.bottombar{flex:none;padding:12px 20px 20px;display:flex;gap:12px;background:var(--bg)}
+
+.btn{font:inherit;font-size:15px;font-weight:500;height:50px;border-radius:var(--r-m);border:.5px solid var(--line);background:var(--surface);color:var(--t1);cursor:pointer;flex:1;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn-primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn-secondary{background:var(--surface)}
+.btn-ghost{background:none;border:0;color:var(--primary);font-size:14px;flex:none;padding:0}
+.btn[disabled]{opacity:.4;cursor:default}
+.btn-danger-text{color:var(--danger)}
+
+.card{background:var(--surface);border:.5px solid var(--line);border-radius:var(--r-l);padding:16px;box-shadow:0 1px 2px rgba(20,26,35,.04)}
+.card-plain{background:var(--surface);border-radius:var(--r-l);padding:16px}
+.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.metric{background:var(--surface);border-radius:var(--r-m);padding:14px 8px;text-align:center}
+.metric b{display:block;font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
+.metric span{font-size:11px;color:var(--t3)}
+
+.lbl{font-size:12px;color:var(--t2);margin:0 0 6px 2px}
+.input{width:100%;height:50px;border-radius:var(--r-m);border:.5px solid var(--line);background:var(--surface);padding:0 14px;font:inherit;font-size:15px;color:var(--t1)}
+.input::placeholder{color:var(--t3)}
+.field{display:flex;flex-direction:column}
+
+.progress{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden}
+.progress i{display:block;height:100%;border-radius:3px;background:var(--primary)}
+.progress.thin{height:3px;border-radius:0;background:var(--surface-2)}
+.progress.thin i{border-radius:0}
+
+.h1{font-size:28px;line-height:36px;font-weight:600;margin:0}
+.h2{font-size:17px;line-height:26px;font-weight:600;margin:0}
+.q{font-size:22px;line-height:32px;font-weight:600;margin:0}
+.a{font-size:15px;line-height:26px;color:var(--t2);margin:0;white-space:pre-wrap}
+.cap{font-size:13px;line-height:20px;color:var(--t2);margin:0}
+.micro{font-size:11px;line-height:16px;color:var(--t3);margin:0}
+.divider{height:.5px;background:var(--line);margin:14px 0}
+
+.chips{display:flex;gap:8px}
+.chip{font:inherit;font-size:13px;padding:6px 14px;border-radius:999px;border:.5px solid var(--line);background:var(--surface);color:var(--t2);cursor:pointer}
+.chip.on{background:var(--primary-soft);border-color:var(--primary);color:var(--primary);font-weight:500}
+
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.row-t{display:flex;align-items:center;gap:8px}
+.stack{display:flex;flex-direction:column;gap:10px}
+
+.ph{border:1px dashed #C9D0DA;border-radius:var(--r-l);background:var(--surface);padding:26px 18px;display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--t3);cursor:pointer}
+.ph svg{color:var(--t3)}
+
+.info{border-radius:var(--r-m);padding:12px 14px;font-size:13px;line-height:20px;background:var(--primary-soft);color:var(--primary)}
+.info.err{background:var(--danger-soft);color:var(--danger)}
+.info.warn{background:#FDF6E9;color:#8A6100}
+
+.opt{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;border-radius:var(--r-l);border:.5px solid var(--line);background:var(--surface);cursor:pointer}
+.opt.on{border-color:var(--primary);background:var(--primary-soft)}
+.opt.on .opt-t{color:var(--primary)}
+.opt-t{font-size:15px;font-weight:500;margin:0 0 3px}
+.radio{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--line);flex:none}
+.opt.on .radio{border-color:var(--primary);background:radial-gradient(circle,#fff 0 4px,var(--primary) 4px)}
+.opt.off{opacity:.45;cursor:default}
+
+.answer-hidden{
+  border-radius:var(--r-l);background:var(--surface-2);min-height:132px;
+  display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px
+}
+
+.mic-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:8px 0 4px}
+.mic{width:88px;height:88px;border-radius:50%;border:none;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font:inherit}
+.mic.rec{background:var(--danger)}
+.mic.ghost{background:var(--surface);border:1.5px solid var(--primary);color:var(--primary)}
+
+.rec-bar{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--danger-soft);border-radius:var(--r-m);padding:10px 14px;color:var(--danger);font-size:13px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--danger)}
+.wave{display:flex;align-items:center;justify-content:center;gap:3px;height:34px}
+.wave span{display:block;width:2px;border-radius:1px;background:var(--danger)}
+
+.play{display:flex;align-items:center;gap:12px}
+.play-btn{width:38px;height:38px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.play-track{flex:1;height:4px;border-radius:2px;background:var(--surface-2);overflow:hidden}
+.play-track i{display:block;height:100%;width:34%;background:var(--primary)}
+
+.list{display:flex;flex-direction:column;background:var(--surface);border-radius:var(--r-l);overflow:hidden;border:.5px solid var(--line)}
+.list-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 16px;font-size:15px}
+.list-item + .list-item{border-top:.5px solid var(--line)}
+.list-item .cap{margin-top:2px}
+
+.avatar{width:44px;height:44px;border-radius:50%;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;flex:none}
+.mono{font-variant-numeric:tabular-nums}
+
+@media (max-width:520px){
+  body{height:100vh;overflow:hidden}
+  .topbar{padding:8px 12px 6px}
+  .brand{display:none}
+  .stage{padding:0}
+  .device{width:100%;height:100%;border:0;border-radius:0;box-shadow:none}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><b>面试题背诵</b> · 手机端界面原型 v1 · 依据 project-scope.md</div>
+  <div class="tabs" id="tabs"></div>
+</div>
+
+<div class="stage">
+  <div class="device">
+    <div class="statusbar"><span>9:41</span><span class="sb-icons"><i class="sb-sig"></i><i class="sb-bat"></i></span></div>
+    <div id="app"></div>
+    <div class="home-ind"></div>
+  </div>
+</div>
+
+<script>
+function wave(n){
+  var out = [];
+  for (var i = 0; i < n; i++){
+    var v = 8 + Math.round(Math.abs(Math.sin(i * 1.7)) * 15);
+    out.push('<span style="height:' + v + 'px"></span>');
+  }
+  return out.join('');
+}
+
+var screens = {};
+
+screens["S0 登录"] = `
+  <div class="content" style="justify-content:center;gap:28px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <h1 class="h1">面试题背诵</h1>
+      <p class="cap">把题库变成一张张卡片，顺序背、随机背、开口复习</p>
+    </div>
+    <div class="stack" style="gap:14px">
+      <div class="field"><span class="lbl">账号</span><input class="input" placeholder="请输入账号" value="kaozhen"></div>
+      <div class="field"><span class="lbl">密码</span><input class="input" type="password" placeholder="请输入密码" value="········"></div>
+      <div class="info err" style="display:none">账号或密码不正确</div>
+    </div>
+    <div class="stack" style="gap:14px">
+      <button class="btn btn-primary">登录</button>
+      <p class="micro" style="text-align:center">仅本人使用，不开放注册</p>
+    </div>
+  </div>`;
+
+screens["S1 首页"] = `
+  <div class="content">
+    <div class="row">
+      <h2 class="h2">下午好</h2>
+      <button class="nav-btn" style="border:.5px solid var(--line);background:var(--surface);width:auto;padding:0 12px;height:32px;font-size:13px;color:var(--t2)">我的</button>
+    </div>
+
+    <div class="card" style="display:flex;flex-direction:column;gap:12px">
+      <div class="row" style="align-items:flex-end">
+        <div><p class="cap" style="margin-bottom:4px">背诵进度</p>
+        <p class="h1 mono" style="font-size:26px">128 <span style="font-size:15px;color:var(--t3);font-weight:400">/ 240</span></p></div>
+        <span class="micro">53%</span>
+      </div>
+      <div class="progress"><i style="width:53%"></i></div>
+      <p class="micro">上次背到第 129 题 · 进度已同步到云端</p>
+    </div>
+
+    <div class="stack" style="gap:12px">
+      <button class="btn btn-primary" style="height:56px;font-size:16px">继续背诵</button>
+      <button class="btn btn-secondary" style="height:56px;font-size:16px">开始复习</button>
+    </div>
+
+    <div class="row" style="padding-top:4px">
+      <p class="cap">题库：面试题库.pdf · 240 题</p>
+      <button class="btn btn-ghost">管理</button>
+    </div>
+  </div>`;
+
+screens["S1b 首页 · 未导入"] = `
+  <div class="content">
+    <div class="row">
+      <h2 class="h2">下午好</h2>
+      <button class="nav-btn" style="border:.5px solid var(--line);background:var(--surface);width:auto;padding:0 12px;height:32px;font-size:13px;color:var(--t2)">我的</button>
+    </div>
+    <div class="ph">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" stroke="currentColor" stroke-width="1.6"/><path d="M14 3v5h5" stroke="currentColor" stroke-width="1.6"/></svg>
+      <span style="font-size:15px;color:var(--t2)">还没有题库</span>
+      <span class="micro">点这里导入面试题 PDF</span>
+    </div>
+    <button class="btn btn-primary" style="height:56px;font-size:16px">导入题库</button>
+    <p class="micro" style="text-align:center">导入并解析完成后，才能开始背诵和复习</p>
+  </div>`;
+
+screens["S2 导入题库"] = `
+  <div class="navbar">
+    <button class="nav-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M15 5L8 12L15 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <span class="nav-title">导入题库</span>
+  </div>
+  <div class="content">
+    <div class="ph">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" stroke="currentColor" stroke-width="1.6"/><path d="M14 3v5h5" stroke="currentColor" stroke-width="1.6"/></svg>
+      <span style="font-size:15px;color:var(--t2)">点击选择 PDF 文件</span>
+      <span class="micro">支持 .pdf；扫描版图片需要额外识别</span>
+    </div>
+    <div class="card-plain row" style="border:.5px solid var(--line)">
+      <div><p class="opt-t" style="margin:0">面试题库.pdf</p><p class="micro" style="margin-top:2px">2.4 MB · 已选择</p></div>
+      <button class="btn btn-ghost">更换</button>
+    </div>
+    <div class="info">解析会按 PDF 的排版自动切分题目与答案，解析完成后可以逐题检查修正。</div>
+  </div>
+  <div class="bottombar"><button class="btn btn-primary">开始解析</button></div>`;
+
+screens["S3 解析结果"] = `
+  <div class="navbar">
+    <button class="nav-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M15 5L8 12L15 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <span class="nav-title">解析完成</span>
+  </div>
+  <div class="content">
+    <div class="metric-grid">
+      <div class="metric"><b class="mono">240</b><span>题目</span></div>
+      <div class="metric"><b class="mono">240</b><span>答案</span></div>
+      <div class="metric"><b class="mono" style="color:var(--danger)">2</b><span>待确认</span></div>
+    </div>
+    <div class="info warn">有 2 处切分可能不准，建议先修正确认再开始背，避免背错。</div>
+    <h2 class="h2">前 3 题预览</h2>
+    <div class="stack" style="gap:10px">
+      <div class="card" style="padding:14px">
+        <div class="row"><span class="micro">第 1 题</span><button class="btn btn-ghost" style="font-size:13px">修正</button></div>
+        <p style="font-size:15px;font-weight:500;margin:6px 0 0">什么是闭包？</p>
+        <p class="cap" style="margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">内部函数能记住并访问它定义时所在作用域里的变量</p>
+      </div>
+      <div class="card" style="padding:14px">
+        <div class="row"><span class="micro">第 2 题</span><button class="btn btn-ghost" style="font-size:13px">修正</button></div>
+        <p style="font-size:15px;font-weight:500;margin:6px 0 0">说说事件循环的理解</p>
+        <p class="cap" style="margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">主线程执行同步任务，异步任务进入任务队列排队等待</p>
+      </div>
+      <div class="card" style="padding:14px">
+        <div class="row"><span class="micro">第 3 题</span><button class="btn btn-ghost" style="font-size:13px">修正</button></div>
+        <p style="font-size:15px;font-weight:500;margin:6px 0 0">原型链是什么？</p>
+        <p class="cap" style="margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">对象通过 __proto__ 向上查找属性的链路</p>
+      </div>
+    </div>
+  </div>
+  <div class="bottombar"><button class="btn btn-secondary">重新导入</button><button class="btn btn-primary">开始背诵</button></div>`;
+
+screens["S4 背诵页"] = `
+  <div class="navbar" style="height:52px">
+    <button class="nav-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M15 5L8 12L15 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <span class="nav-title" style="font-size:15px;font-weight:500">第 12 / 240 题</span>
+    <div class="chips">
+      <button class="chip on">顺序</button>
+      <button class="chip">随机</button>
+    </div>
+  </div>
+  <div class="progress thin" style="margin:0 20px"><i style="width:5%"></i></div>
+  <div class="content" style="padding-top:16px">
+    <div class="card" style="padding:20px">
+      <p class="q">什么是闭包？请结合你项目里的例子说明。</p>
+      <div class="divider"></div>
+      <p class="a">闭包是函数和它定义时所在作用域的组合。
+
+内部函数可以访问外部函数的变量，即使外部函数已经执行完毕，这些变量也不会被回收。
+
+典型用途：封装私有变量、函数柯里化、防抖节流里保存定时器 id。</p>
+      <div class="divider"></div>
+      <p class="micro">答案与题目同屏显示，先自己过一遍再看</p>
+    </div>
+  </div>
+  <div class="bottombar">
+    <button class="btn btn-secondary">上一题</button>
+    <button class="btn btn-primary">下一题</button>
+  </div>`;
+
+screens["S5 复习 · 选范围"] = `
+  <div class="navbar">
+    <button class="nav-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M15 5L8 12L15 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <span class="nav-title">开始复习</span>
+  </div>
+  <div class="content">
+    <p class="cap">答案会先藏起来，请对着题目开口讲一遍并录音，讲完再点开答案对照。</p>
+    <div class="stack" style="gap:12px">
+      <div class="opt on">
+        <div><p class="opt-t">复习刚背完的这一轮</p><p class="micro">第 1 – 12 题</p></div>
+        <i class="radio"></i>
+      </div>
+      <div class="opt">
+        <div><p class="opt-t">复习整个题库</p><p class="micro">共 240 题</p></div>
+        <i class="radio"></i>
+      </div>
+    </div>
+    <div class="stack" style="gap:10px">
+      <span class="lbl">复习顺序</span>
+      <div class="chips"><button class="chip on">顺序复习</button><button class="chip">随机复习</button></div>
+    </div>
+  </div>
+  <div class="bottombar"><button class="btn btn-primary">开始复习</button></div>`;
+
+screens["S6 复习 · 待录"] = `
+  <div class="navbar" style="height:52px">
+    <button class="nav-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M15 5L8 12L15 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <span class="nav-title" style="font-size:15px;font-weight:500">复习 · 第 12 / 240 题</span>
+    <div class="chips"><button class="chip on">顺序</button><button class="chip">随机</button></div>
+  </div>
+  <div class="progress thin" style="margin:0 20px"><i style="width:5%"></i></div>
+  <div class="content" style="padding-top:16px">
+    <p class="q">什么是闭包？请结合你项目里的例子说明。</p>
+    <div class="answer-hidden">答案已隐藏，讲完再看</div>
+    <div class="mic-wrap">
+      <button class="mic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M12 3a3 3 0 013 3v6a3 3 0 01-6 0V6a3 3 0 013-3z" stroke="currentColor" stroke-width="1.8"/><path d="M5 11a7 7 0 0014 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      <p class="cap">按住说话，讲完松手</p>
+      <p class="micro">录音只保存在本机</p>
+    </div>
+  </div>`;
+
+screens["S7 复习 · 录音中"] = `
+  <div class="navbar" style="height:52px">
+    <button class="nav-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M15 5L8 12L15 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <span class="nav-title" style="font-size:15px;font-weight:500">复习 · 第 12 / 240 题</span>
+    <div class="chips"><button class="chip on">顺序</button><button class="chip">随机</button></div>
+  </div>
+  <div class="progress thin" style="margin:0 20px"><i style="width:5%"></i></div>
+  <div class="content" style="padding-top:16px">
+    <p class="q">什么是闭包？请结合你项目里的例子说明。</p>
+    <div class="rec-bar"><i class="dot"></i><span>录音中</span><span class="mono">00:14</span></div>
+    <div class="wave">${wave(24)}</div>
+    <div class="mic-wrap">
+      <button class="mic rec"><svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M12 3a3 3 0 013 3v6a3 3 0 01-6 0V6a3 3 0 013-3z" stroke="currentColor" stroke-width="1.8"/><path d="M5 11a7 7 0 0014 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      <button class="btn btn-secondary" style="width:180px;flex:none">说完了</button>
+    </div>
+  </div>`;
+
+screens["S8 复习 · 对照答案"] = `
+  <div class="navbar" style="height:52px">
+    <button class="nav-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M15 5L8 12L15 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <span class="nav-title" style="font-size:15px;font-weight:500">复习 · 第 12 / 240 题</span>
+    <div class="chips"><button class="chip on">顺序</button><button class="chip">随机</button></div>
+  </div>
+  <div class="progress thin" style="margin:0 20px"><i style="width:5%"></i></div>
+  <div class="content" style="padding-top:16px">
+    <p class="h2" style="font-size:17px;color:var(--t1)">什么是闭包？请结合你项目里的例子说明。</p>
+    <div class="card" style="padding:14px">
+      <div class="play">
+        <span class="play-btn"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M5 3.5l8 4.5-8 4.5z" fill="currentColor"/></svg></span>
+        <div style="flex:1">
+          <p class="cap" style="margin:0 0 6px">回放我刚才说的</p>
+          <div class="play-track"><i></i></div>
+        </div>
+        <span class="micro mono">00:14</span>
+      </div>
+    </div>
+    <div>
+      <p class="h2" style="margin-bottom:8px">参考答案</p>
+      <p class="a">闭包是函数和它定义时所在作用域的组合。
+
+内部函数可以访问外部函数的变量，即使外部函数已经执行完毕，这些变量也不会被回收。
+
+典型用途：封装私有变量、函数柯里化、防抖节流里保存定时器 id。</p>
+    </div>
+  </div>
+  <div class="bottombar">
+    <button class="btn btn-secondary">上一题</button>
+    <button class="btn btn-primary">下一题</button>
+  </div>`;
+
+screens["S9 我的"] = `
+  <div class="navbar">
+    <button class="nav-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M15 5L8 12L15 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <span class="nav-title">我的</span>
+  </div>
+  <div class="content">
+    <div class="card row">
+      <div class="row-t">
+        <div class="avatar">K</div>
+        <div><p class="opt-t" style="margin:0">kaozhen</p><p class="micro" style="margin-top:2px">已登录 · 进度自动同步</p></div>
+      </div>
+    </div>
+    <div class="list">
+      <div class="list-item"><div><p style="margin:0;font-size:15px">题库</p><p class="cap">面试题库.pdf · 240 题</p></div><button class="btn btn-ghost">重新导入</button></div>
+      <div class="list-item"><div><p style="margin:0;font-size:15px">背诵进度</p><p class="cap">已背 128 / 240</p></div><button class="btn btn-ghost">重置</button></div>
+      <div class="list-item"><div><p style="margin:0;font-size:15px">录音存储</p><p class="cap">仅保存在本机，不上传</p></div><span class="micro">待定</span></div>
+    </div>
+    <button class="btn btn-secondary btn-danger-text" style="margin-top:4px">退出登录</button>
+  </div>`;
+
+var order = Object.keys(screens);
+var tabs = document.getElementById("tabs");
+var app = document.getElementById("app");
+
+order.forEach(function(name, i){
+  var b = document.createElement("button");
+  b.className = "tab" + (i === 0 ? " on" : "");
+  b.textContent = name;
+  b.onclick = function(){
+    Array.prototype.forEach.call(tabs.children, function(c){ c.classList.remove("on"); });
+    b.classList.add("on");
+    app.innerHTML = screens[name];
+    var sc = app.querySelector(".content");
+    if (sc) sc.scrollTop = 0;
+  };
+  tabs.appendChild(b);
+});
+
+app.innerHTML = screens[order[0]];
+</script>
+</body>
+</html>
