@@ -32,6 +32,7 @@
 
 ## 文件约定
 - `project-scope.md`：需求定义文档。原始需求在上，确认后的细化结论在下（「需求细化」章节）。
+- **版本控制**：git 仓库，主分支 `main`。`.gitignore` 忽略 `node_modules/`、`dist/`、`build/`、`.DS_Store`、`*.log`、`.env*`。`.workbuddy/`（项目记忆）已纳入版本控制。
 
 ## 当前卡点
 用户尚未把题库 PDF 放进项目目录。**下一步第一件事就是拿到真实 PDF 并跑一次解析验证。**
