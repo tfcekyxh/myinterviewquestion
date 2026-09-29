@@ -272,7 +272,8 @@ Page 3 · 📱 Screens
    └─ 10 S9_Me
 
 Page 4 · 🔗 Prototype
-   └─ 用 Screens 复制一份，连好流程（见第四节）
+   └─ 流程说明图（Screens 里的按钮已直接挂好点击跳转，
+      切到「演示」模式即可走完整流程，无需再复制一份）
 ```
 
 **Auto Layout 约定**
@@ -291,3 +292,38 @@ Page 4 · 🔗 Prototype
 3. 麦克风相关操作**必须**在 HTTPS + Safari 下才可用，需要做能力检测与明确提示。
 4. 题干长短差异极大，卡片高度必须自适应，不做固定高。
 5. 数字（题号、计时、进度）使用等宽数字（`font-variant-numeric: tabular-nums`），避免跳动。
+
+---
+
+## 八、在 Figma 里生成这份设计稿
+
+设计稿由 `figma-plugin/` 里的插件**原生生成**——生成的是可编辑的 Figma 图层、组件和样式，不是图片、不是截图。
+
+### 安装（一次性，约 1 分钟）
+
+1. 打开 **Figma 桌面端**（网页版不支持加载本地插件）
+2. 随便打开一个文件 → 顶部菜单 `Plugins` → `Development` → `Import plugin from manifest…`
+3. 选中项目里的 `figma-plugin/manifest.json`
+4. 完成。插件会出现在 `Plugins → Development` 菜单下
+
+### 运行
+
+1. 新建一个 Figma **Design file**
+2. `Plugins → Development → 面试题背诵 · 设计稿生成器`
+3. 等 3–5 秒，自动生成 4 个页面
+
+### 生成内容
+
+| 页面 | 内容 |
+|---|---|
+| 🎨 Design Tokens | 13 个颜色已建为 Paint Style（命名 `颜色/primary` 等）、7 档文字已建为 Text Style（命名 `文字/title-1` 等），另附色卡板、字阶对照表、间距与圆角示意 |
+| 🧩 Components | 9 组组件：`Button/Primary`（4 变体）、`Button/Secondary`（2）、`Button/Mic`（2）、`Input/Text`（2）、`Chip/Mode`（2）、`Card/Question`、`ProgressBar`（2）、`NavBar`、`Feedback/Inline`（3） |
+| 📱 Screens | 11 个 390×844 界面，已按 4 列排版，并挂好原型点击跳转 |
+| 🔗 Prototype | 页面流程说明 + 复习模式的硬约束提示 |
+
+### 说明与限制
+
+- **可重复运行**：插件每次运行会先清掉自己创建的样式再重建，不会产生重复项。
+- **字体**：优先使用 `PingFang SC`；取不到时按 `Hiragino Sans GB → Microsoft YaHei → Noto Sans SC → Inter` 依次回退。若最终回退到 Inter，中文会走系统字体回退，字重表现会略打折扣，因此**建议在 macOS 上运行**。
+- 组件目前是**基础组件 + 变体**，没有做嵌套实例（如列表项）；页面里的对应元素是独立图层，后续可以自行替换为实例。
+- 这是**起点稿**，不是终稿。生成的目的是省掉"从零搭 Frame 和样式"的时间，视觉细节按你的习惯继续调。

@@ -1,0 +1,11 @@
+{
+  "name": "面试题背诵 · 设计稿生成器",
+  "id": "interview-flashcards-ued-generator",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["none"]
+  }
+}
