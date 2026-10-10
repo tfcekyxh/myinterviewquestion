@@ -39,7 +39,24 @@
 - **风险二：后端依赖与配额。** 登录 / 题库 / 进度都依赖网络与服务端；云服务有配额，超出需升级；失败必须给出明确提示，不能静默失败。
 - 题答同屏缺少主动回忆环节，但**复习模式正好弥补**（隐藏答案 + 开口复述）。
 
+## 技术栈（2026-10-10 定，详见 `tech-stack.md`）
+**用户追加约束：数据库先用 SQLite，后续迁移到云数据库。**
+主方案：**纯静态前端 + 浏览器内 SQLite WASM + 云服务只做登录**。
+- Vite + TS + **React 19**；路由必须 **HashRouter**（静态托管无 history fallback）
+- 样式：原生 CSS Variables + CSS Modules，**不引 UI 库**（ued.md 令牌已定死）
+- DB：`@sqlite.org/sqlite-wasm` + **`opfs-sahpool` 后端**（关键：另一个 `opfs` 后端需要服务端发 COOP/COEP，静态托管改不了；sahpool 不需要任何响应头，但只允许一个连接）
+- SQLite 必须跑在 **Worker** 里（OPFS 同步句柄只在 Worker 线程可用）
+- Auth：`@tencent-ai/workbuddy-cloud-sdk@dev` → `cloud.auth`（必须装 `@dev` 频道，不锁版本）
+- PDF：`pdfjs-dist` + `getTextContent()`；录音：MediaRecorder（iOS 出 audio/mp4，非 webm）+ Blob 存 IndexedDB
+
+**为迁移留的三条硬约定**：① 数据只走 `src/data/repo.ts`，业务层不碰 sqlite/cloud SDK ② **repo 方法从第一天起全部 async** ③ SQL 只写两边交集（不写主键、时间存 epoch 毫秒整数、避开 JSON 列 / INSERT OR REPLACE / ON CONFLICT / AUTOINCREMENT）
+
+**iOS 7 天清理规则**：连续 7 个 Safari 使用日无交互就清空该站 IndexedDB/OPFS/localStorage。**添加到主屏幕**豁免 → 要加 manifest + `apple-mobile-web-app-capable`，并建议提供「导出题库 JSON」兜底。
+
+**已知冲突（待用户拍板）**：① 用 SQLite 期间，决策 5「跨设备接着背」暂时失效 ② Auth 不支持用户名，只支持邮箱/手机 → `ued.md` S0 的「账号」实际要是邮箱，设计稿需改。
+
 ## 文件约定
+- `tech-stack.md`：技术栈方案 v1（选型表、SQLite 落地的三个前提、迁移三约定、风险、目录结构、安装命令）。
 - `project-scope.md`：需求定义文档。原始需求在上，确认后的结论在下（「需求细化」章节）。
 - `design/ued.md`：**UED 设计规范 v1**（设计令牌、组件清单、页面流程、逐屏说明含 Figma Frame/Auto Layout 建议、给开发的标注要点）。
 - `design/prototype.html`：**可交互高保真原型**，含 11 个界面（登录 / 首页含未导入态 / 导入 / 解析结果 / 背诵 / 复习选范围 / 复习待录 / 录音中 / 对照答案 / 我的），顶部标签切换，手机浏览器可直接打开。
