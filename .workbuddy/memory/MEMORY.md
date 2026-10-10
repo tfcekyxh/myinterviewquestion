@@ -76,6 +76,8 @@
 **本机环境问题**：`npx playwright install` 报 `EEXIST: __dirlock` 是因为 `~/Library/Caches/ms-playwright/__dirlock` 有旧空锁目录，**用 `rmdir` 清掉即可**（已处理过一次）。
 
 ## 文件约定
+- `impl-plan.md`：**分阶段实施方案 P0–P5**（2026-10-10 定）。排期按风险倒序：P0 验证 PDF 解析（最高风险，含决策门）→ P1 骨架+登录（**可与 P0 并行**，顺手验证磁盘持久性）→ P2 导入闭环 → P3 背诵 → P4 复习录音 → P5 兜底收尾。每阶段有 DoD 验收清单。功能开发用 fixture 假题库驱动，不等真实 PDF。
+- `CLAUDE.md`：**给 AI 编码助手的项目约定**（2026-10-10 新建）。含文档索引、8 条硬约束红线、测试约定、git 约定、明确不做清单。
 - `tech-stack.md`：技术栈方案 **v2**（Express + node:sqlite + 自建登录 + 测试策略）。含选型表、零原生编译原则、登录方案、部署约束、测试三层策略、目录结构与安装命令。
 - `project-scope.md`：需求定义文档。原始需求在上，确认后的结论在下（「需求细化」章节）。
 - `design/ued.md`：**UED 设计规范 v1**（设计令牌、组件清单、页面流程、逐屏说明含 Figma Frame/Auto Layout 建议、给开发的标注要点）。

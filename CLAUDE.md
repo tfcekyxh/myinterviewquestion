@@ -1,0 +1,74 @@
+# CLAUDE.md
+
+把一个题库 PDF 变成手机上能一道一道背的卡片。用户**只用 iPhone**，全程以 iOS Safari 为前提。
+
+## 文档索引（动手前先读，避免与已定结论冲突）
+
+| 文件 | 是什么 |
+|---|---|
+| `project-scope.md` | 需求与已确认决策（**最终依据**） |
+| `design/ued.md` | UED 设计规范：13 色 / 7 档字 / 组件 / 逐屏说明 |
+| `tech-stack.md` | 技术栈与部署约束（**技术细节以此为准**） |
+| `impl-plan.md` | 分阶段实施方案（P0–P5） |
+
+> 出现过历史方案变更（无后端 → 云服务 → 自建 Express）。**凡遇到「无后端 / 存浏览器本地 / 云服务 Auth」的旧描述，一律以当前文档为准。**
+
+## 架构一句话
+
+```
+iPhone Safari ─HTTPS─▶ Express（单端口：托管 dist + /api）─▶ SQLite（node:sqlite）
+```
+
+前端 Vite + TypeScript + React 19，**BrowserRouter**（有 Express 兜底路由）。
+
+## 硬约束（红线，违反会直接导致线上故障）
+
+1. **零原生编译依赖。** 发布沙箱没有 C/C++ 工具链。禁止引入 `better-sqlite3`、`sqlite3`、`bcrypt`、`argon2`（`connect-sqlite3` 也禁——它源码 `require('sqlite3')` 却没在 package.json 声明）。数据库用 Node 内置 `node:sqlite`，密码哈希用 `crypto.scrypt`。
+2. **必须 `app.set('trust proxy', 1)`。** 缺了会导致 HTTPS 下 secure Cookie 不下发，症状是「登录成功但一刷新就掉线」，极难排查。
+3. **路由顺序不可颠倒**：`/api` → `express.static(dist)` → `app.get('*')` 兜底。
+4. **启动必须** `app.listen(process.env.PORT, '0.0.0.0')`。
+5. **不引 UI 组件库。** 样式用原生 CSS Variables，直接映射 `ued.md` 的令牌值。
+6. **录音必须抽成 `src/lib/recorder.ts` 接口**，组件只依赖接口。实测：jsdom 里**没有 `MediaRecorder`、也没有 `navigator.mediaDevices`**，写在组件里就没法写组件测试。
+7. **录音文件扩展名绝不能写死 `.webm`**，必须按 `recorder.mimeType` 推导。实测 Chromium 出 `audio/mp4;codecs=opus`，iPhone 出 `audio/mp4`。
+8. **复习模式的硬约束**：进入「对照答案」之前，页面上不允许存在任何能看到答案的入口。
+
+## 测试约定
+
+- **组件测试**：Vitest + React Testing Library + jsdom。改组件必须同步更新测试。
+- **端到端**：Playwright。改主流程必须同步更新 e2e。
+- **真机**：iPhone Safari 手动清单（`tech-stack.md` 11.9）。**Playwright 跑不出真 iOS Safari**，模拟器通过不等于能用。
+- Playwright 已知坑：`devices['iPhone 13']` 默认切 WebKit，需在 `...devices` 之前显式写 `browserName: 'chromium'`；`webServer.url` 探测根路径且 404 算未就绪。
+
+## 数据结构约定
+
+- 时间统一存 **epoch 毫秒整数**，不存字符串日期。
+- 单用户，不需要 `owner_id`（唯一账号天然隔离）。
+- 表：`users` / `questions` / `progress` / `reviews` / `meta` / `sessions`。
+
+## 命令
+
+```bash
+npm run dev          # 前端（Vite，/api 代理到 :3000）
+npm run dev:server   # 后端
+npm test             # vitest run（组件测试）
+npm run test:e2e     # playwright test
+```
+
+本机受管 Node 在 `~/.workbuddy/binaries/node/versions/`；`node:sqlite` 需要 Node 22.5+（22.22.2 实测无需 flag）。
+
+## Git 约定
+
+- 主分支 `main`。commit message 用中文，前缀 `feat:` / `fix:` / `docs:` / `test:` / `refactor:`，正文说明「做了什么、为什么」。
+- 每完成一个阶段提交一次，**保持工作区干净**。
+- 不进仓库：`.env`、`data/`、`*.db`、`test-results/`、`playwright-report/`。
+
+## 明确不做（本期范围外）
+
+- 开放注册 / 多账号管理（只要一个账号，写在 `.env`）
+- 按章节分组选背诵范围
+- 「不会」错题清单
+- 语音转文字（技术路线已查清，见 `project-scope.md` 第五节）
+
+## 当前卡点
+
+题库 PDF 尚未放进项目目录。它到位前先做 `impl-plan.md` 的 P1（骨架 + 登录），不依赖 PDF。
