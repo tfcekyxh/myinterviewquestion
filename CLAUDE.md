@@ -37,7 +37,8 @@ iPhone Safari ─HTTPS─▶ Express（单端口：托管 dist + /api）─▶ S
 - **组件测试**：Vitest + React Testing Library + jsdom。改组件必须同步更新测试。
 - **端到端**：Playwright。改主流程必须同步更新 e2e。
 - **真机**：iPhone Safari 手动清单（`tech-stack.md` 11.9）。**Playwright 跑不出真 iOS Safari**，模拟器通过不等于能用。
-- Playwright 已知坑：`devices['iPhone 13']` 默认切 WebKit，需在 `...devices` 之前显式写 `browserName: 'chromium'`；`webServer.url` 探测根路径且 404 算未就绪。
+- Playwright 已知坑：`devices['iPhone 13']` 默认切 WebKit，需在 `...devices` 之前显式写 `browserName: 'chromium'`；`webServer.url` 探测根路径且 404 算未就绪；headless shell 是独立组件、`install chromium` 不一定装上它（本机即缺）→ 配置里加 `channel: 'chromium'` 绕开。
+- **断言"答案没泄露"时，先剔除 `script/style/template` 再取 `textContent`** —— 内联脚本的源码会被算进 `body.textContent`，导致断言永远失败。
 
 ## 数据结构约定
 

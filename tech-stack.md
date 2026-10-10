@@ -354,8 +354,20 @@ Vite 项目用 Jest 需要额外配 `babel-jest` 或 `ts-jest` 才能吃 TSX；*
    `ued.md` 定了一条硬规则：进入「对照答案」之前，界面上不允许存在任何能看到答案的入口。这条必须锁死，否则复习就退化成背诵了。断言方式要狠一点——**查整个 DOM 文本**，而不只是查某个节点：
 
    ```tsx
-   expect(document.body.textContent).not.toContain(ANSWER)
+   expect(visibleText()).not.toContain(ANSWER)
    ```
+
+   ⚠️ **但不要直接写 `document.body.textContent`** —— 实测踩到：如果页面里有**内联 `<script>`**（fixture、内联 mock、某些模板写法），`textContent` 会把**脚本源码也算进去**，于是哪怕 UI 上完全看不到答案，断言也会永远失败。正确做法是先剔除脚本类节点：
+
+   ```ts
+   const visibleText = () => {
+     const clone = document.body.cloneNode(true) as HTMLElement
+     clone.querySelectorAll('script,style,template').forEach((n) => n.remove())
+     return clone.textContent ?? ''
+   }
+   ```
+
+   （Vite 构建产物里的 script 是外链 `src=...`，不含内联源码，所以 RTL 里通常可以直接用 `document.body.textContent`；但只要页面里出现过内联脚本，就必须用上面的写法。）
 
 2. **顺序 / 随机切换**：切到随机后题序确实被打乱，切回顺序后恢复原序（对应决策 3 的"层层递进"）
 3. **解析结果预览（S3）**：题目条数、待确认项标记、逐条预览渲染正确
@@ -396,6 +408,7 @@ export default defineConfig({
   workers: 1,
   use: {
     baseURL: 'http://127.0.0.1:3100',
+    channel: 'chromium',             // ★ 坑 5：headless shell 是独立组件，不一定装了
     permissions: ['microphone'],
     launchOptions: {
       args: [
@@ -425,12 +438,12 @@ export default defineConfig({
 **实测输出：**
 
 ```
-Running 2 tests using 1 worker
-  录音产出: recorded:audio/mp4;codecs=opus:757
-  2 passed (1.8s)
+Running 1 test using 1 worker
+  录音产出: recorded:audio/mp4;codecs=opus:11192
+  1 passed (3.5s)
 ```
 
-#### 四个坑（都是真踩到的，不是理论）
+#### 五个坑（都是真踩到的，不是理论）
 
 | # | 坑 | 表现 | 解法 |
 |---|---|---|---|
@@ -438,8 +451,11 @@ Running 2 tests using 1 worker
 | 2 | 项目 `package.json` 有 `"type": "module"` | 服务端 `.js` 用 `require` 会报 `require is not defined` | 服务端文件用 `.cjs`，或整体改 ESM 写法 |
 | 3 | `webServer.url` 探测根路径，**404 也算未就绪** | 干等 20 秒后 `Timed out waiting` | 确保 `/` 返回 200（Express 兜底路由要生效） |
 | 4 | 浏览器 build 版本必须与 Playwright 版本匹配 | 缓存的 1243 配 Playwright 1.64（要 1248）会直接失败 | `npx playwright install chromium` |
+| 5 | **`chromium_headless_shell` 是独立组件**，`install chromium` 不等于装了它；安装中途失败时更会被漏掉 | 报 `Executable doesn't exist at .../chromium_headless_shell-1248` | 要么 `npx playwright install chromium-headless-shell`，要么在 `use` 里加 **`channel: 'chromium'`**（直接用完整 Chromium，已实测通过） |
 
-> 本机插曲：`npx playwright install` 曾一直报 `EEXIST: __dirlock`。原因是 `~/Library/Caches/ms-playwright/__dirlock` 有个**10-04 留下的陈旧空锁目录**（Playwright 自己创建的锁没被清掉）。已用 `rmdir` 清掉（只对空目录生效）。**以后再遇到同样的报错，就是这个原因。**
+> 上面第 5 条就是本机真实情况：`install chromium` 在下载 **ffmpeg** 那一步失败（ffmpeg 只用于录制视频，本项目用不到），导致排在其后的 headless shell 没被装上；好在完整 Chromium 已经装好了，加 `channel: 'chromium'` 即绕开。
+
+> 另一段本机插曲：`npx playwright install` 曾一直报 `EEXIST: __dirlock`。原因是 `~/Library/Caches/ms-playwright/__dirlock` 有个**10-04 留下的陈旧空锁目录**（Playwright 自己创建的锁没被清掉）。已用 `rmdir` 清掉（只对空目录生效）。**以后再遇到同样的报错，就是这个原因。**
 
 #### 一个对录音实现有直接影响的发现
 

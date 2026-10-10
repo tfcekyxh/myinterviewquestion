@@ -69,11 +69,13 @@
 **实测硬结论（别再重查）**：
 1. **jsdom 里没有 `MediaRecorder`、没有 `navigator.mediaDevices`**（实测 undefined）→ 录音必须抽成 `src/lib/recorder.ts` 接口，组件测试 `vi.mock` 换桩，真录音只在 e2e 跑
 2. **Chromium 的 MediaRecorder 出 `audio/mp4;codecs=opus`，不是 webm** → **录音文件扩展名绝不能写死 `.webm`**，必须按 `recorder.mimeType` 推导（iPhone 出 audio/mp4）
-3. 组件测试最该锁的是 ued.md 的硬约束：**对照答案前，整个 `document.body.textContent` 都不得出现答案文本**
+3. 组件测试最该锁的是 ued.md 的硬约束：**对照答案前，整个 DOM 都不得出现答案文本**
+   ⚠️ 但**不能直接用 `document.body.textContent`** —— 内联 `<script>` 源码会被算进去导致永远失败。
+   须先 `clone.querySelectorAll('script,style,template').forEach(n=>n.remove())` 再取 textContent（实测踩到）
 
-**Playwright 四个真坑**：① `devices['iPhone 13']` 默认切 WebKit（报 webkit 未安装），须在 `...devices` 前显式写 `browserName:'chromium'` ② 项目 `"type":"module"` 下服务端 `.js` 用 `require` 会报错，用 `.cjs` ③ `webServer.url` 探测根路径且 **404 算未就绪** ④ 浏览器 build 版本要与 Playwright 版本匹配（缓存 1243 vs 1.64 要 1248）。
+**Playwright 五个真坑**：① `devices['iPhone 13']` 默认切 WebKit（报 webkit 未安装），须在 `...devices` 前显式写 `browserName:'chromium'` ② 项目 `"type":"module"` 下服务端 `.js` 用 `require` 会报错，用 `.cjs` ③ `webServer.url` 探测根路径且 **404 算未就绪** ④ 浏览器 build 版本要与 Playwright 版本匹配（缓存 1243 vs 1.64 要 1248）⑤ **`chromium_headless_shell` 是独立组件**，`install chromium` 未必装上 → 配置加 `channel:'chromium'` 绕开（本机即此情况，已实测通过）。
 
-**本机环境问题**：`npx playwright install` 报 `EEXIST: __dirlock` 是因为 `~/Library/Caches/ms-playwright/__dirlock` 有旧空锁目录，**用 `rmdir` 清掉即可**（已处理过一次）。
+**本机 Playwright 环境现状（2026-10-10）**：chromium-1248 已完整安装；缺 headless shell（ffmpeg 下载失败导致后续组件没走到，ffmpeg 只用于录视频不需要）；WebKit 未下载；陈旧 `__dirlock` 已 `rmdir` 清掉（再遇 `EEXIST: __dirlock` 就是同样原因）。
 
 ## 文件约定
 - `impl-plan.md`：**分阶段实施方案 P0–P5**（2026-10-10 定）。排期按风险倒序：P0 验证 PDF 解析（最高风险，含决策门）→ P1 骨架+登录（**可与 P0 并行**，顺手验证磁盘持久性）→ P2 导入闭环 → P3 背诵 → P4 复习录音 → P5 兜底收尾。每阶段有 DoD 验收清单。功能开发用 fixture 假题库驱动，不等真实 PDF。
