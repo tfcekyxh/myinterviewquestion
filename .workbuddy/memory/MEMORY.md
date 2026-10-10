@@ -39,21 +39,26 @@
 - **风险二：后端依赖与配额。** 登录 / 题库 / 进度都依赖网络与服务端；云服务有配额，超出需升级；失败必须给出明确提示，不能静默失败。
 - 题答同屏缺少主动回忆环节，但**复习模式正好弥补**（隐藏答案 + 开口复述）。
 
-## 技术栈（2026-10-10 定，详见 `tech-stack.md`）
-**用户追加约束：数据库先用 SQLite，后续迁移到云数据库。**
-主方案：**纯静态前端 + 浏览器内 SQLite WASM + 云服务只做登录**。
-- Vite + TS + **React 19**；路由必须 **HashRouter**（静态托管无 history fallback）
-- 样式：原生 CSS Variables + CSS Modules，**不引 UI 库**（ued.md 令牌已定死）
-- DB：`@sqlite.org/sqlite-wasm` + **`opfs-sahpool` 后端**（关键：另一个 `opfs` 后端需要服务端发 COOP/COEP，静态托管改不了；sahpool 不需要任何响应头，但只允许一个连接）
-- SQLite 必须跑在 **Worker** 里（OPFS 同步句柄只在 Worker 线程可用）
-- Auth：`@tencent-ai/workbuddy-cloud-sdk@dev` → `cloud.auth`（必须装 `@dev` 频道，不锁版本）
-- PDF：`pdfjs-dist` + `getTextContent()`；录音：MediaRecorder（iOS 出 audio/mp4，非 webm）+ Blob 存 IndexedDB
+## 技术栈（2026-10-10 最终版 v2，详见 `tech-stack.md`）
+**用户后端是 Express。** 架构：iPhone Safari → **Express（单端口，同时托管 Vite dist 与 `/api`）** → SQLite 文件。
+> v1（浏览器内 SQLite WASM + 云服务 Auth）已废弃。该项目**不再依赖 WorkBuddy 云服务**（已开通，留着即可）。
 
-**为迁移留的三条硬约定**：① 数据只走 `src/data/repo.ts`，业务层不碰 sqlite/cloud SDK ② **repo 方法从第一天起全部 async** ③ SQL 只写两边交集（不写主键、时间存 epoch 毫秒整数、避开 JSON 列 / INSERT OR REPLACE / ON CONFLICT / AUTOINCREMENT）
+| 层 | 选型 |
+|---|---|
+| 服务端 / 数据库 | Express 5 + **`node:sqlite`（Node 内置，零依赖）** |
+| 登录 | `express-session` + **自写 SqliteStore（40 行）** + `crypto.scrypt` |
+| 前端 | Vite + TS + React 19 + **BrowserRouter**（有 Express 兜底路由，不必用 hash） |
+| PDF | 前端 `pdfjs-dist` 解析，结果 POST 入库 |
+| 录音 | MediaRecorder → Blob，默认存本机 IndexedDB，上传开关待定 |
 
-**iOS 7 天清理规则**：连续 7 个 Safari 使用日无交互就清空该站 IndexedDB/OPFS/localStorage。**添加到主屏幕**豁免 → 要加 manifest + `apple-mobile-web-app-capable`，并建议提供「导出题库 JSON」兜底。
+**头号选型原则：依赖必须零原生编译。** 沙箱无 C/C++ 工具链 → 淘汰 better-sqlite3 / sqlite3 / **connect-sqlite3（源码 require 原生 sqlite3 却未在 package.json 声明，已拆包确认）** / bcrypt / argon2。
+`node:sqlite` 在 Node **22.22.2 实测可用且无需 flag**。
 
-**已知冲突（待用户拍板）**：① 用 SQLite 期间，决策 5「跨设备接着背」暂时失效 ② Auth 不支持用户名，只支持邮箱/手机 → `ued.md` S0 的「账号」实际要是邮箱，设计稿需改。
+**部署硬性要求**：`app.listen(process.env.PORT, '0.0.0.0')`；**必须 `app.set('trust proxy', 1)`**（否则 HTTPS 下 secure Cookie 不下发，症状是"登录成功但刷新就掉线"）；路由顺序 `/api` → `static(dist)` → `app.get('*')` 兜底，不可颠倒。
+
+**两个 v1 的坑自动消失**：iOS 7 天清存储、换设备丢进度 —— 数据在服务端。决策 5「跨设备接着背」重新成立。
+
+**唯一未验证风险**：重新发布后 SQLite 文件是否持久（发布环境明确支持 SQLite、明确不支持 MySQL/PG/Redis，但没保证磁盘）。兜底加「导出/导入题库 JSON」。验证：上线导入题库 → 再发布一次 → 看数据是否还在。
 
 ## 文件约定
 - `tech-stack.md`：技术栈方案 v1（选型表、SQLite 落地的三个前提、迁移三约定、风险、目录结构、安装命令）。
