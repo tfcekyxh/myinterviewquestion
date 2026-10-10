@@ -60,8 +60,23 @@
 
 **唯一未验证风险**：重新发布后 SQLite 文件是否持久（发布环境明确支持 SQLite、明确不支持 MySQL/PG/Redis，但没保证磁盘）。兜底加「导出/导入题库 JSON」。验证：上线导入题库 → 再发布一次 → 看数据是否还在。
 
+## 测试策略（2026-10-10 定，详见 `tech-stack.md` 第十一节，已实测跑通）
+**用户定：RTL 做 component test，Playwright 做 e2e。** 三层验证：
+- **L1 组件** Vitest 5 + RTL 16 + jsdom 30（React 19）→ 实测 **4/4 通过**
+- **L2 e2e** Playwright 1.64（Chromium + `--use-fake-device-for-media-stream` 假麦克风）→ 实测 **2/2 通过**，含 iPhone 13 视口 390×844
+- **L3 真机** iPhone Safari 手动清单 5 项 —— **不可省**，macOS WebKit ≠ iOS Safari
+
+**实测硬结论（别再重查）**：
+1. **jsdom 里没有 `MediaRecorder`、没有 `navigator.mediaDevices`**（实测 undefined）→ 录音必须抽成 `src/lib/recorder.ts` 接口，组件测试 `vi.mock` 换桩，真录音只在 e2e 跑
+2. **Chromium 的 MediaRecorder 出 `audio/mp4;codecs=opus`，不是 webm** → **录音文件扩展名绝不能写死 `.webm`**，必须按 `recorder.mimeType` 推导（iPhone 出 audio/mp4）
+3. 组件测试最该锁的是 ued.md 的硬约束：**对照答案前，整个 `document.body.textContent` 都不得出现答案文本**
+
+**Playwright 四个真坑**：① `devices['iPhone 13']` 默认切 WebKit（报 webkit 未安装），须在 `...devices` 前显式写 `browserName:'chromium'` ② 项目 `"type":"module"` 下服务端 `.js` 用 `require` 会报错，用 `.cjs` ③ `webServer.url` 探测根路径且 **404 算未就绪** ④ 浏览器 build 版本要与 Playwright 版本匹配（缓存 1243 vs 1.64 要 1248）。
+
+**本机环境问题**：`npx playwright install` 报 `EEXIST: __dirlock` 是因为 `~/Library/Caches/ms-playwright/__dirlock` 有旧空锁目录，**用 `rmdir` 清掉即可**（已处理过一次）。
+
 ## 文件约定
-- `tech-stack.md`：技术栈方案 v1（选型表、SQLite 落地的三个前提、迁移三约定、风险、目录结构、安装命令）。
+- `tech-stack.md`：技术栈方案 **v2**（Express + node:sqlite + 自建登录 + 测试策略）。含选型表、零原生编译原则、登录方案、部署约束、测试三层策略、目录结构与安装命令。
 - `project-scope.md`：需求定义文档。原始需求在上，确认后的结论在下（「需求细化」章节）。
 - `design/ued.md`：**UED 设计规范 v1**（设计令牌、组件清单、页面流程、逐屏说明含 Figma Frame/Auto Layout 建议、给开发的标注要点）。
 - `design/prototype.html`：**可交互高保真原型**，含 11 个界面（登录 / 首页含未导入态 / 导入 / 解析结果 / 背诵 / 复习选范围 / 复习待录 / 录音中 / 对照答案 / 我的），顶部标签切换，手机浏览器可直接打开。

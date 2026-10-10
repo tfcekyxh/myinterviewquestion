@@ -46,8 +46,11 @@ iPhone Safari ──HTTPS──▶ Express（单进程 / 单端口）
 | 样式 | 原生 CSS Variables | 直接映射 `ued.md` 的 13 色 / 7 档字 |
 | PDF 解析 | **前端 `pdfjs-dist`**，结果 POST 入库 | 见第八节 |
 | 录音 | MediaRecorder → Blob（存本机 IndexedDB 或上传） | 见第七节 |
+| 组件测试 | **Vitest + React Testing Library + jsdom** | 见第十一节，已实测跑通 |
+| 端到端测试 | **Playwright**（Chromium，假麦克风设备） | 见第十一节，已实测跑通 |
 
-**总第三方依赖：express、express-session、react、react-dom、react-router-dom、pdfjs-dist —— 6 个，全部纯 JS。**
+**运行时第三方依赖：express、express-session、react、react-dom、react-router-dom、pdfjs-dist —— 6 个，全部纯 JS、零原生编译。**
+（测试依赖另计，不进生产构建。）
 
 ---
 
@@ -278,7 +281,11 @@ npm i express express-session
 
 # 前端
 npm create vite@latest web -- --template react-ts
-cd web && npm i react-router-dom
+cd web && npm i react-router-dom pdfjs-dist
+
+# 测试（详见第十一节）
+npm i -D vitest jsdom @testing-library/react \
+         @testing-library/jest-dom @testing-library/user-event @playwright/test
 ```
 
 ```
@@ -291,16 +298,213 @@ myInterviewQuestion/
 │   ├── sessionStore.js 自写 SqliteStore（已验证）
 │   └── routes/         questions / progress / reviews
 ├── web/                Vite + React
+│   ├── src/lib/recorder.ts  录音接口（组件测试用桩替换，见 11.5）
+│   ├── src/**/*.test.tsx    L1 组件测试
+│   ├── vitest.config.ts
 │   └── dist/           → 由 Express 托管
-├── data/               app.db（不进 git）
+├── e2e/                L2 端到端（playwright.config.ts + *.spec.ts）
+├── data/               app.db / test.db（都不进 git）
 └── .env                APP_ACCOUNT / APP_PASSWORD（不进 git）
 ```
 
-`.gitignore` 追加：`data/`、`*.db`、`.env`
+`.gitignore` 追加：`data/`、`*.db`、`.env`、`test-results/`、`playwright-report/`
 
 ---
 
-## 十一、待你拍板
+## 十一、测试策略：RTL 做组件测试，Playwright 做 e2e
+
+> 本节所有配置与结论**均已在本机实跑验证**（见 12.6 的实测输出），不是纸面方案。
+
+### 12.1 三层验证，各管一段
+
+| 层 | 工具 | 跑在哪 | 覆盖什么 |
+|---|---|---|---|
+| **L1 组件 / 交互** | Vitest + React Testing Library + jsdom | 本地秒级 | 单个组件的状态机与渲染分支 |
+| **L2 端到端** | Playwright（Chromium + 假麦克风） | 本地分钟级 | 全链路，含真实浏览器行为与录音 |
+| **L3 真机** | 手动清单（5 项） | iPhone Safari | iOS 特有行为 —— **唯一无法自动化的部分** |
+
+L3 不能省。原因见 12.9：**Playwright 跑不出真正的 iOS Safari**。
+
+### 12.2 依赖（版本均已实测）
+
+```bash
+npm i -D vitest @vitest/coverage-v8 jsdom \
+         @testing-library/react @testing-library/jest-dom @testing-library/user-event \
+         @playwright/test
+```
+
+| 包 | 实测版本 | 作用 |
+|---|---|---|
+| `vitest` | 5.0.3 | 测试运行器 |
+| `jsdom` | 30.1.2 | 提供 DOM 环境 |
+| `@testing-library/react` | 16.3.3 | 组件渲染与查询（支持 React 19） |
+| `@testing-library/jest-dom` | 7.0.1 | `toBeInTheDocument` 等断言 |
+| `@testing-library/user-event` | 14.6.7 | 模拟真实用户操作 |
+| `@playwright/test` | 1.64.0 | e2e |
+
+### 12.3 为什么是 Vitest 而不是 Jest
+
+Vite 项目用 Jest 需要额外配 `babel-jest` 或 `ts-jest` 才能吃 TSX；**Vitest 直接复用 `vite.config.ts` 的转译管线，零额外配置**。同样是 RTL 写法，少一整套构建胶水。
+
+### 12.4 组件测试该测什么（针对本项目）
+
+**优先测这五处**——都是"错了会直接毁掉产品价值"的地方：
+
+1. **复习三阶段的硬约束（最重要）**
+   `ued.md` 定了一条硬规则：进入「对照答案」之前，界面上不允许存在任何能看到答案的入口。这条必须锁死，否则复习就退化成背诵了。断言方式要狠一点——**查整个 DOM 文本**，而不只是查某个节点：
+
+   ```tsx
+   expect(document.body.textContent).not.toContain(ANSWER)
+   ```
+
+2. **顺序 / 随机切换**：切到随机后题序确实被打乱，切回顺序后恢复原序（对应决策 3 的"层层递进"）
+3. **解析结果预览（S3）**：题目条数、待确认项标记、逐条预览渲染正确
+4. **空状态（S1b）**：没导入题库时首页显示引导，而不是一片空白
+5. **进度与题号**：刷新后位置正确、数字渲染不跳
+
+**不要测**：CSS 具体像素值（那是视觉回归的活，本项目不做）；组件内部 state；实现细节（否则一重构测试就红）。
+
+### 12.5 录音必须抽一层，否则组件测试写不了
+
+这一点是实测出来的，不是推测：
+
+```
+jsdom 环境能力探测：
+  MediaRecorder          → undefined
+  navigator.mediaDevices → undefined
+```
+
+jsdom **既没有 `MediaRecorder` 也没有 `navigator.mediaDevices`**。所以录音逻辑不能直接写在组件里，必须抽成可替换的模块：
+
+```ts
+// src/lib/recorder.ts —— 组件只依赖这个接口
+export interface Recorder {
+  start(): Promise<void>
+  stop(): Promise<{ blob: Blob; mimeType: string; durationMs: number }>
+}
+```
+
+- **组件测试**：`vi.mock('./recorder')` 换成假实现，专注测状态流转
+- **e2e**：用真实实现，在 Chromium 里跑真录音（见 12.6）
+
+### 12.6 Playwright 配置（已跑通，含 4 个真实踩到的坑）
+
+```ts
+// playwright.config.ts
+export default defineConfig({
+  testDir: './e2e',
+  workers: 1,
+  use: {
+    baseURL: 'http://127.0.0.1:3100',
+    permissions: ['microphone'],
+    launchOptions: {
+      args: [
+        '--use-fake-device-for-media-stream',  // 用合成音频设备，无需真麦克风
+        '--use-fake-ui-for-media-stream',
+      ],
+    },
+  },
+  projects: [{
+    name: 'mobile',
+    use: {
+      browserName: 'chromium',        // ★ 坑 1：必须显式写
+      ...devices['iPhone 13'],
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+    },
+  }],
+  webServer: {
+    command: 'npm run start:test',    // ★ 坑 2：必须是 .cjs 或 ESM 写法
+    url: 'http://127.0.0.1:3100',     // ★ 坑 3：URL 必须返回 <400
+    reuseExistingServer: !process.env.CI,
+  },
+})
+```
+
+**实测输出：**
+
+```
+Running 2 tests using 1 worker
+  录音产出: recorded:audio/mp4;codecs=opus:757
+  2 passed (1.8s)
+```
+
+#### 四个坑（都是真踩到的，不是理论）
+
+| # | 坑 | 表现 | 解法 |
+|---|---|---|---|
+| 1 | `devices['iPhone 13']` **默认把浏览器切成 WebKit** | 报 `Executable doesn't exist at .../webkit-2370` | 在 `...devices` **之前**写 `browserName: 'chromium'`，或 `npx playwright install webkit` |
+| 2 | 项目 `package.json` 有 `"type": "module"` | 服务端 `.js` 用 `require` 会报 `require is not defined` | 服务端文件用 `.cjs`，或整体改 ESM 写法 |
+| 3 | `webServer.url` 探测根路径，**404 也算未就绪** | 干等 20 秒后 `Timed out waiting` | 确保 `/` 返回 200（Express 兜底路由要生效） |
+| 4 | 浏览器 build 版本必须与 Playwright 版本匹配 | 缓存的 1243 配 Playwright 1.64（要 1248）会直接失败 | `npx playwright install chromium` |
+
+> 本机插曲：`npx playwright install` 曾一直报 `EEXIST: __dirlock`。原因是 `~/Library/Caches/ms-playwright/__dirlock` 有个**10-04 留下的陈旧空锁目录**（Playwright 自己创建的锁没被清掉）。已用 `rmdir` 清掉（只对空目录生效）。**以后再遇到同样的报错，就是这个原因。**
+
+#### 一个对录音实现有直接影响的发现
+
+Chromium 选的是 **`audio/mp4;codecs=opus`**，不是 `audio/webm`。也就是说：
+
+> **不能把录音文件的扩展名写死成 `.webm`。** 存文件、上传、回放时必须用 `recorder.mimeType` 推导扩展名，否则 iPhone 上（出 `audio/mp4`）会存出打不开的文件。
+
+### 12.7 e2e 该测什么
+
+跑**完整链路**，而不是每个页面点一遍：
+
+1. 登录（错误密码 → 401；正确 → 进入）
+2. 导入 PDF → 解析结果页显示条数
+3. 背诵：下一题 / 上一题 / 切随机
+4. **复习：答案隐藏 → 录音 → 对照答案**（已验证可跑）
+5. 刷新页面 → 进度还在（验证服务端 session + 进度落库）
+
+**数据库必须隔离**：`NODE_ENV=test` 时指向 `data/test.db`，每个用例前重建表，**绝不能碰 `data/app.db`**。
+
+### 12.8 目录与命令
+
+```
+myInterviewQuestion/
+├── server/
+├── web/
+│   ├── src/
+│   │   ├── lib/recorder.ts        录音接口（组件测试用桩替换）
+│   │   ├── test-setup.ts          import '@testing-library/jest-dom/vitest'
+│   │   └── components/*.test.tsx  ← L1 组件测试
+│   └── vitest.config.ts
+└── e2e/                           ← L2 端到端
+    ├── playwright.config.ts
+    └── *.spec.ts
+```
+
+```json
+"scripts": {
+  "test":       "vitest run",
+  "test:watch": "vitest",
+  "test:e2e":   "playwright test",
+  "start:test": "NODE_ENV=test node server/index.js"
+}
+```
+
+### 12.9 必须说清楚的限制：Playwright 跑不出真 iOS Safari
+
+**这一点决定了 L3 不能省。** Playwright 提供的 WebKit 是 **macOS 版 WebKit**，和 iOS Safari 不是一回事；即便装了它，下面这些也测不出来：
+
+- iOS Safari 的 `MediaRecorder` 实际行为与 mimeType
+- 麦克风 / 语音识别**授权弹窗**的真实流程
+- `secure` Cookie 在 HTTPS + 反向代理下的表现（对应第四节那个 `trust proxy` 坑）
+- `safe-area-inset` 与安全区适配
+- 手势、滚动惯性、输入法遮挡
+
+所以保留一份**真机手动清单**，每次改动后花两分钟过一遍：
+
+- [ ] Safari 打开首页，未登录会被拦
+- [ ] 登录后刷新不掉线
+- [ ] 复习页面点录音，弹窗出现且能授权
+- [ ] 录完能回放，听到的是自己的声音
+- [ ] 底部按钮不被 Home 指示条遮挡
+
+---
+
+## 十二、待你拍板
 
 1. **账号名**：想用什么？（邮箱 / 自定义用户名都行 —— 自建登录没有限制）
 2. **录音上传要不要做**：倾向先只存本机，把磁盘风险留给第九节验证之后再决定
