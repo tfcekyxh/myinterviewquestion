@@ -15,9 +15,12 @@
     "build": "npm -w web run build",
     "start": "node server/index.js",
     "test": "npm -w web run test",
+    "typecheck": "npm -w web run typecheck",
     "test:e2e": "playwright test",
     "start:test": "NODE_ENV=test node server/index.js",
-    "pdf:extract": "node scripts/extract-questions.mjs"
+    "pdf:extract": "node scripts/extract-questions.mjs",
+    "smoke:auth": "node scripts/smoke-auth.mjs",
+    "smoke:progress": "node scripts/smoke-progress.mjs"
   },
   "dependencies": {
     "express": "^5.3.0",

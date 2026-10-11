@@ -4,6 +4,7 @@ import Login from './pages/Login'
 import Home from './pages/Home'
 import Import from './pages/Import'
 import Bank from './pages/Bank'
+import Recite from './pages/Recite'
 
 export default function App() {
   const { user, loading, error, setUser, refresh } = useSession()
@@ -30,6 +31,7 @@ export default function App() {
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login onSuccess={refresh} />} />
       <Route path="/import" element={user ? <Import /> : <Navigate to="/login" replace />} />
       <Route path="/bank" element={user ? <Bank /> : <Navigate to="/login" replace />} />
+      <Route path="/recite" element={user ? <Recite /> : <Navigate to="/login" replace />} />
       <Route
         path="/"
         element={

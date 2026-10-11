@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchBank, logout, type BankInfo } from '../lib/api'
+import { fetchBank, fetchProgress, logout, type BankInfo, type ProgressState } from '../lib/api'
 import type { SessionUser } from '../lib/api'
+import { currentSeq, doneCount, isFinished } from '../lib/recite'
 
 interface Props {
   user: SessionUser
@@ -10,19 +11,22 @@ interface Props {
 
 /**
  * 首页（ued.md S1 / S1b）。
- * 已导入：进度卡 + 题库信息行；未导入：空状态 + 「导入题库」。
- * 进度本身在 P3 接入，这里先把「有没有题库」这件事做对。
+ * 已导入：进度卡（已背 X / N + 粗进度条 + 上次背到第几题）+「继续背诵」。
+ * 未导入：空状态 +「导入题库」。
  */
 export default function Home({ user, onLogout }: Props) {
   const navigate = useNavigate()
   const [bank, setBank] = useState<BankInfo | null>(null)
+  const [prog, setProg] = useState<ProgressState | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      setBank(await fetchBank())
+      const [b, p] = await Promise.all([fetchBank(), fetchProgress()])
+      setBank(b)
+      setProg(p)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : '加载题库信息失败')
@@ -57,7 +61,15 @@ export default function Home({ user, onLogout }: Props) {
     )
   }
 
-  const imported = (bank?.total ?? 0) > 0
+  const total = bank?.total ?? 0
+  const imported = total > 0
+
+  // 进度里的题目序号是 1..total 的连续编号（seq），所以直接拿 1..total 即可
+  const allSeqs = Array.from({ length: total }, (_, i) => i + 1)
+  const done = prog ? doneCount(prog) : 0
+  const finished = prog ? isFinished(prog, total) : false
+  const lastSeq = prog ? currentSeq(prog, allSeqs) : 1
+  const percent = total ? (Math.min(done, total) / total) * 100 : 0
 
   return (
     <div className="screen">
@@ -71,18 +83,27 @@ export default function Home({ user, onLogout }: Props) {
       {imported ? (
         <>
           <div className="card" style={{ marginTop: 20 }}>
-            <div style={{ fontSize: 24, lineHeight: '32px', fontWeight: 600 }}>共 {bank?.total} 题</div>
+            <div style={{ fontSize: 24, lineHeight: '32px', fontWeight: 600 }}>
+              已背 {done} / {total}
+            </div>
+            <div className="progress-bar progress-bar--thick" style={{ marginTop: 12 }}>
+              <span style={{ width: `${percent}%` }} />
+            </div>
             <div className="t-caption color-text-2" style={{ marginTop: 8 }}>
-              背诵与复习将在后续阶段接入
+              {finished
+                ? '这一轮已经背完了，去复习一下？'
+                : done === 0
+                  ? '还没开始，从第 1 题开始'
+                  : `上次背到第 ${lastSeq} 题`}
             </div>
           </div>
 
           <div style={{ flex: 1 }} />
-          <button type="button" className="btn-primary" disabled>
-            继续背诵
+          <button type="button" className="btn-primary" onClick={() => navigate('/recite')}>
+            {done === 0 ? '开始背诵' : '继续背诵'}
           </button>
           <button type="button" className="btn-secondary" style={{ marginTop: 12 }} disabled>
-            开始复习
+            开始复习（下一阶段接入）
           </button>
           <div
             className="t-caption color-text-3"

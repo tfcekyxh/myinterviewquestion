@@ -28,11 +28,11 @@ db.exec(`
     source_pdf TEXT
   );
 
+  -- 单用户场景，进度就是「一行 JSON」。
+  -- 顺序与随机各记一个位置，这样两种模式来回切都不会丢进度（ued.md S4）。
   CREATE TABLE IF NOT EXISTS progress (
-    id         INTEGER PRIMARY KEY,
-    mode       TEXT NOT NULL,          -- 'order' | 'random'
-    position   INTEGER NOT NULL DEFAULT 0,
-    total      INTEGER NOT NULL DEFAULT 0,
+    id         INTEGER PRIMARY KEY CHECK (id = 1),
+    data       TEXT NOT NULL,
     updated_at INTEGER NOT NULL
   );
 
@@ -55,6 +55,47 @@ db.exec(`
     expires INTEGER NOT NULL
   );
 `)
+
+// P3 把 progress 从「一行三字段」改成了「一行 JSON」。老结构直接重建——
+// P3 之前根本没有写入过真实进度，重建不会丢任何东西。
+{
+  const cols = db.prepare('PRAGMA table_info(progress)').all().map((c) => c.name)
+  if (!cols.includes('data')) {
+    db.exec('DROP TABLE progress')
+    db.exec(`
+      CREATE TABLE progress (
+        id         INTEGER PRIMARY KEY CHECK (id = 1),
+        data       TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+    `)
+  }
+}
+
+/** 读取进度；没存过或数据坏了都返回 null，由调用方给默认值 */
+export function readProgress() {
+  const row = db.prepare('SELECT data, updated_at FROM progress WHERE id = 1').get()
+  if (!row) return null
+  try {
+    const parsed = JSON.parse(row.data)
+    if (!parsed || typeof parsed !== 'object') return null
+    return { ...parsed, updatedAt: row.updated_at }
+  } catch {
+    return null
+  }
+}
+
+export function writeProgress(state) {
+  const { updatedAt: _ignored, ...data } = state
+  db.prepare('INSERT OR REPLACE INTO progress (id, data, updated_at) VALUES (1, ?, ?)').run(
+    JSON.stringify(data),
+    Date.now(),
+  )
+}
+
+export function clearProgress() {
+  db.exec('DELETE FROM progress')
+}
 
 export function resetDb() {
   db.exec(`

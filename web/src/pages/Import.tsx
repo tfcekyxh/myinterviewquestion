@@ -139,7 +139,9 @@ export default function Import() {
         </div>
       )}
 
-      {stage === 'result' && result && (
+      {/* 必须把 saving 也算进来：否则一点「确认入库」，stage 变成 saving
+          就会整块卸载，界面闪回选文件页，「入库中…」永远看不到。 */}
+      {(stage === 'result' || stage === 'saving') && result && (
         <>
           <div style={{ marginTop: 20 }} className="metrics">
             <div className="metric">
@@ -184,6 +186,7 @@ export default function Import() {
             type="button"
             className="btn-secondary"
             style={{ marginTop: 12 }}
+            disabled={stage === 'saving'}
             onClick={() => {
               setResult(null)
               setFile(null)

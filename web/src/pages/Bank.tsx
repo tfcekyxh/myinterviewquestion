@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchFullBank, saveQuestions, type ParsedQuestion } from '../lib/api'
+import { fetchFullBank, resetProgress, saveQuestions, type ParsedQuestion } from '../lib/api'
 
 /**
  * 题库管理（P2.5）—— 兜底用的「导出 / 导入 JSON」。
@@ -14,6 +14,21 @@ export default function Bank() {
 
   const [busy, setBusy] = useState<string | null>(null)
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+  const [confirmReset, setConfirmReset] = useState(false)
+
+  async function doResetProgress() {
+    setBusy('reset')
+    setMessage(null)
+    try {
+      await resetProgress()
+      setMessage({ kind: 'ok', text: '背诵进度已重置' })
+      setConfirmReset(false)
+    } catch (e) {
+      setMessage({ kind: 'error', text: e instanceof Error ? e.message : '重置失败' })
+    } finally {
+      setBusy(null)
+    }
+  }
 
   async function exportJson() {
     setBusy('export')
@@ -129,6 +144,50 @@ export default function Bank() {
         <button type="button" className="btn-secondary" onClick={() => navigate('/import')}>
           重新导入 PDF
         </button>
+      </div>
+
+      {/* 重置进度：行内二次确认，不用弹窗（ued.md S9 交互） */}
+      <div style={{ marginTop: 24 }}>
+        {confirmReset ? (
+          <div className="inline-error" role="alert">
+            <div>确定要重置背诵进度吗？题目不会动，只是回到第 1 题。</div>
+            <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ flex: 1, height: 40 }}
+                onClick={() => setConfirmReset(false)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ flex: 1, height: 40, background: 'var(--danger)' }}
+                disabled={busy !== null}
+                onClick={doResetProgress}
+              >
+                确定重置
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="t-caption"
+            style={{
+              width: '100%',
+              height: 44,
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--danger)',
+              fontFamily: 'inherit',
+            }}
+            onClick={() => setConfirmReset(true)}
+          >
+            重置背诵进度
+          </button>
+        )}
       </div>
     </div>
   )

@@ -55,7 +55,7 @@ test('导入真实 PDF：解析出 200 题，入库后首页显示规模', async
 
   await page.getByRole('button', { name: '确认入库' }).click()
 
-  await expect(page.getByText('共 200 题')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('已背 0 / 200')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText(/题库：.*· 200 题/)).toBeVisible()
 })
 
@@ -68,5 +68,5 @@ test('重新导入会整批替换，不会叠加成 400 题', async ({ page }) =
   await page.getByRole('button', { name: '开始解析' }).click()
   await expect(page.getByText('前 3 题预览')).toBeVisible({ timeout: 150_000 })
   await page.getByRole('button', { name: '确认入库' }).click()
-  await expect(page.getByText('共 200 题')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('已背 0 / 200')).toBeVisible({ timeout: 30_000 })
 })

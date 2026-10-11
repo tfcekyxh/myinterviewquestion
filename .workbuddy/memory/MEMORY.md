@@ -5,13 +5,24 @@
 
 **用户设备：只用 iPhone。** 所有兼容性决策以此为前提。
 
-## P0/P1 已落地（2026-10-11，代码在仓库里）
+## P0–P3 已落地（2026-10-11，代码在仓库里）
 
-- **PDF 解析准确率 100%**（200/200，无需 OCR）。规则：**题干行字号 9.65 vs 正文 8.25**，靠字号台阶切题——不能按编号/按页/按空行切。详见 `pdf-parse-report.md` 与 `web/src/lib/pdf/parse.ts`。
+- **P0 PDF 解析：准确率 100%**（200/200，无需 OCR）。规则：**题干行字号 9.65 vs 正文 8.25**，靠字号台阶切题——不能按编号/按页/按空行切。详见 `pdf-parse-report.md` 与 `web/src/lib/pdf/parse.ts`。
+- **P1 骨架+登录**：Express 5 + `node:sqlite` + `scrypt` + 自写 SqliteStore；单账号 `admin`，密码在 `.env`（不进 git）。
+- **P2 导入闭环**：浏览器端 pdfjs → `parse.ts` 切题 → 预览 → 整批入库（事务）。
+- **P2.5 导出/导入题库 JSON**：`/bank`，`data/app.db` 丢失时的兜底。
+- **P3 背诵模式**：`/recite`（题答同屏 + 顺序/随机 + 进度存服务端）；首页进度卡；`/bank` 可重置进度。
 - 代码结构：根目录 npm workspaces，`server/`（Express ESM）+ `web/`（Vite/React/TS）+ `e2e/` + `scripts/`。
-- 命令：`npm run dev:server`（:3000）、`npm -w web run dev`、`npm -w web run test`、`npx playwright test`、`npm run pdf:extract`。
+- 命令：`npm run dev:server`（:3000）、`npm -w web run dev`、`npm test`、`npm run typecheck`、`npm run test:e2e`、`npm run pdf:extract`、`npm run smoke:auth` / `smoke:progress`。
 - **Node 22 可直接运行 `.ts`**（类型擦除），所以 Node 脚本与浏览器共用同一份解析源码。
-- 账号 `admin`，密码在 `.env`（不进 git）。
+
+## 进度模型（P3 定，改动前先看）
+- `progress` 表是**单行 JSON**（`id=1` 恒成立），字段 `mode / posOrder / posRandom / randOrder / total`。
+- **位置语义是「已背题数」，取值 0..N，不是数组下标**；取到 N = 这一轮背完了（否则「已背 240/240」无法表达）。
+- **顺序与随机各存一个位置**，这是「切模式不丢进度」的前提。
+- **随机序列 `randOrder` 也存服务端**，否则刷新会重洗，做不到「刷新停在同一题」。
+- **题库规模一变，位置一律归零**（旧位置指向别的题，比丢掉更糟）。
+- 客户端写进度**必须串行化**（Promise 链），并发 PUT 网络乱序会让位置回退。
 
 ## 架构（2026-09-29 已变更，以本节为准）
 **前端：手机 H5 网页。后端：WorkBuddy 云服务**（数据库 + 用户认证 + 文件存储）。
@@ -71,9 +82,14 @@
 
 ## 测试策略（2026-10-10 定，详见 `tech-stack.md` 第十一节，已实测跑通）
 **用户定：RTL 做 component test，Playwright 做 e2e。** 三层验证：
-- **L1 组件** Vitest 5 + RTL 16 + jsdom 30（React 19）→ 实测 **4/4 通过**
-- **L2 e2e** Playwright 1.64（Chromium + `--use-fake-device-for-media-stream` 假麦克风）→ 实测 **2/2 通过**，含 iPhone 13 视口 390×844
+- **L1 组件** Vitest + RTL + jsdom（React 19）→ 当前 **59 条全绿**
+- **L2 e2e** Playwright（Chromium + `--use-fake-device-for-media-stream` 假麦克风）→ 当前 **14 条全绿**，含 iPhone 13 视口 390×844
 - **L3 真机** iPhone Safari 手动清单 5 项 —— **不可省**，macOS WebKit ≠ iOS Safari
+- 另有接口级冒烟：`scripts/smoke-auth.mjs`（11 项）、`scripts/smoke-progress.mjs`（21 项）
+
+**`vite build` 不做类型检查（esbuild 只剥类型）。`npm run build` 已改成先跑 `tsc --noEmit`** —— 补上后立刻暴露了 4 处真 bug，其中 `Import.tsx` 的 `stage` 判断漏 `'saving'` 会导致「入库中…」永远看不到。
+
+**e2e 顺序与共享状态**：各 spec 顺序执行、共用同一个服务与 `data/test.db` → 每个 spec 要么自播种数据，要么把依赖初始状态的用例放进 `00-empty.spec.ts`。`recite.spec.ts` 会把题库换成 12 道 fixture，必须排在 `import.spec.ts` 之后。**改首页文案要同步 e2e 里的可见文本断言**（已踩：`共 200 题` → `已背 0 / 200`）。
 
 **实测硬结论（别再重查）**：
 1. **jsdom 里没有 `MediaRecorder`、没有 `navigator.mediaDevices`**（实测 undefined）→ 录音必须抽成 `src/lib/recorder.ts` 接口，组件测试 `vi.mock` 换桩，真录音只在 e2e 跑
@@ -101,5 +117,19 @@
 - **重要认知：`Figma Framelink MCP` 是只读的**（`get_figma_data` 读文件、`download_figma_images` 下图），**不能建稿**，只适合「已有 Figma 稿 → 生成代码」的方向。Figma 官方也只通过 Plugin API 开放写能力。
 - **版本控制**：git 仓库，主分支 `main`。`.gitignore` 忽略 `node_modules/`、`dist/`、`build/`、`.DS_Store`、`*.log`、`.env*`。`.workbuddy/`（项目记忆）已纳入版本控制。
 
+## 关键源码地图
+| 位置 | 职责 |
+|---|---|
+| `server/db.js` | `node:sqlite` 建表 + `progress` 单行 JSON 读写 + 老结构迁移 |
+| `server/routes/auth.js` / `questions.js` / `progress.js` | 登录、题库（整批替换）、进度 |
+| `web/src/lib/pdf/parse.ts` | **切题纯函数**（Node 与浏览器共用），13 条单测 |
+| `web/src/lib/pdf/extract.ts` | 浏览器端 pdfjs 抽文本项（动态 import，只有导入页加载） |
+| `web/src/lib/recite.ts` | 洗牌与进度换算纯逻辑 |
+| `web/src/lib/api.ts` | 前端访问后端的唯一入口（含 `ProgressState`） |
+| `web/src/pages/` | `Login` / `Home` / `Import` / `Bank` / `Recite` |
+| `web/src/styles.css` | 原生 CSS Variables 映射 `ued.md` 设计令牌 |
+
 ## 当前卡点
-题库 PDF 尚未放进项目目录。**下一步第一件事就是拿到真实 PDF 并跑一次解析验证。**
+无阻塞。**下一步 P4：复习模式（含录音）**，硬约束见 `impl-plan.md` 与 `CLAUDE.md`：
+① 录音抽成 `web/src/lib/recorder.ts` 接口；② 扩展名按 `recorder.mimeType` 推导，绝不写死 `.webm`；
+③ **进「对照答案」前，页面上不得存在任何能看到答案的入口**（组件测试要断言整个 body 不含答案文本，且须先剔除 `script/style/template`）。

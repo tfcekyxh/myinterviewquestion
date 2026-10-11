@@ -39,12 +39,17 @@ iPhone Safari ─HTTPS─▶ Express（单端口：托管 dist + /api）─▶ S
 - **真机**：iPhone Safari 手动清单（`tech-stack.md` 11.9）。**Playwright 跑不出真 iOS Safari**，模拟器通过不等于能用。
 - Playwright 已知坑：`devices['iPhone 13']` 默认切 WebKit，需在 `...devices` 之前显式写 `browserName: 'chromium'`；`webServer.url` 探测根路径且 404 算未就绪；headless shell 是独立组件、`install chromium` 不一定装上它（本机即缺）→ 配置里加 `channel: 'chromium'` 绕开。
 - **断言"答案没泄露"时，先剔除 `script/style/template` 再取 `textContent`** —— 内联脚本的源码会被算进 `body.textContent`，导致断言永远失败。
+- **e2e 各 spec 顺序执行、共用同一个服务与 `data/test.db`**，所以每个 spec 要么自播种数据、要么把依赖初始状态的用例放进 `00-empty.spec.ts`（唯一在全新库上跑的）。
+  `recite.spec.ts` 会把题库换成 12 道 fixture，必须排在 `import.spec.ts` 之后（文件名排序靠后即可）。
+- **改了首页/主流程的文案，记得同步 e2e 里的断言** —— 断言写的是可见文本，文案一改就红。
 
 ## 数据结构约定
 
 - 时间统一存 **epoch 毫秒整数**，不存字符串日期。
 - 单用户，不需要 `owner_id`（唯一账号天然隔离）。
 - 表：`users` / `questions` / `progress` / `reviews` / `meta` / `sessions`。
+- `progress` 是**单行 JSON**（`id=1` 恒成立）。位置语义是「**已背题数**」，取值 `0..N`，
+  取到 `N` 表示这一轮背完了；顺序与随机各存一个位置（`posOrder` / `posRandom`）。
 
 ## 命令
 
@@ -52,7 +57,10 @@ iPhone Safari ─HTTPS─▶ Express（单端口：托管 dist + /api）─▶ S
 npm run dev          # 前端（Vite，/api 代理到 :3000）
 npm run dev:server   # 后端
 npm test             # vitest run（组件测试）
+npm run typecheck    # tsc --noEmit（build 现在也会先跑它）
 npm run test:e2e     # playwright test
+npm run smoke:auth       # 登录接口级冒烟（需先起服务）
+npm run smoke:progress   # 进度接口级冒烟（会覆盖题库与进度，建议跑在 NODE_ENV=test 的服务上）
 ```
 
 本机受管 Node 在 `~/.workbuddy/binaries/node/versions/`；`node:sqlite` 需要 Node 22.5+（22.22.2 实测无需 flag）。

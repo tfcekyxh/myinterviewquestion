@@ -52,9 +52,11 @@ test('深链接刷新也能保持登录（Express 兜底路由生效）', async 
   await page.getByRole('button', { name: '登录' }).click()
   await expect(page.getByText('下午好')).toBeVisible()
 
-  await page.goto('/recite')
+  // 不存在的深链接 → Express 的 /*splat 兜底交出 index.html → 前端路由再兜回首页。
+  // （原先这里用的是 /recite，但 P3 之后它已经是真实路由，不再走兜底了）
+  await page.goto('/does-not-exist/deep/link')
   await page.reload()
-  // /recite 目前没有对应路由，会被重定向回首页；若掉线则会回到登录页
+  // 若掉线则会回到登录页
   await expect(page.getByText('下午好')).toBeVisible()
 })
 

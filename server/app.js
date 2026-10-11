@@ -9,6 +9,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { authRouter } from './routes/auth.js'
 import { questionsRouter } from './routes/questions.js'
+import { progressRouter } from './routes/progress.js'
 import { SqliteStore, pruneSessions } from './sessionStore.js'
 
 const DIST = path.resolve('web/dist')
@@ -40,6 +41,7 @@ export function createApp() {
   // 1. API
   app.use('/api', authRouter)
   app.use('/api/questions', questionsRouter)
+  app.use('/api/progress', progressRouter)
   app.get('/api/health', (_req, res) => res.json({ ok: true }))
 
   // 2. 静态产物（可能还没构建过，缺失时给明确提示而不是白屏）

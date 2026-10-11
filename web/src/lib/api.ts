@@ -84,3 +84,35 @@ export async function saveQuestions(
 export async function logout(): Promise<void> {
   await request<{ ok: true }>('/api/logout', { method: 'POST' })
 }
+
+export type ReciteMode = 'order' | 'random'
+
+/**
+ * 背诵进度。顺序与随机各存一个位置 —— 两种模式来回切都不会丢进度。
+ * randOrder 是随机模式下的题目序号序列（seq 的排列）。
+ */
+export interface ProgressState {
+  mode: ReciteMode
+  posOrder: number
+  posRandom: number
+  randOrder: number[]
+  total: number
+  updatedAt: number | null
+}
+
+export async function fetchProgress(): Promise<ProgressState> {
+  return request<ProgressState>('/api/progress')
+}
+
+export type ProgressPatch = Partial<Pick<ProgressState, 'mode' | 'posOrder' | 'posRandom' | 'randOrder'>>
+
+export async function saveProgress(patch: ProgressPatch): Promise<ProgressState> {
+  return request<ProgressState>('/api/progress', {
+    method: 'PUT',
+    body: JSON.stringify(patch),
+  })
+}
+
+export async function resetProgress(): Promise<void> {
+  await request<{ ok: true }>('/api/progress', { method: 'DELETE' })
+}

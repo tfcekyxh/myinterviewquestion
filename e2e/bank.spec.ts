@@ -40,7 +40,7 @@ async function importPdf(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: '开始解析' }).click()
   await expect(page.getByText('前 3 题预览')).toBeVisible({ timeout: 150_000 })
   await page.getByRole('button', { name: '确认入库' }).click()
-  await expect(page.getByText('共 200 题')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('已背 0 / 200')).toBeVisible({ timeout: 30_000 })
 }
 
 test('导出 → 覆盖 → 导回：题库能被完整救回来', async ({ page }) => {
@@ -64,12 +64,12 @@ test('导出 → 覆盖 → 导回：题库能被完整救回来', async ({ page
   // 2. 故意用一份 1 题的 JSON 覆盖掉题库
   await page.goto('/bank')
   await page.setInputFiles('input[type=file]', SMALL)
-  await expect(page.getByText('共 1 题')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('已背 0 / 1')).toBeVisible({ timeout: 30_000 })
 
   // 3. 把备份导回来
   await page.goto('/bank')
   await page.setInputFiles('input[type=file]', BACKUP)
-  await expect(page.getByText('共 200 题')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('已背 0 / 200')).toBeVisible({ timeout: 30_000 })
 
   // 内容与原题一致，且顺序保留
   await expect(page.getByText(/题库：.*· 200 题/)).toBeVisible()

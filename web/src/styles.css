@@ -306,6 +306,12 @@ body {
   background: var(--primary);
 }
 
+/* 卡片内的粗进度条（高 6px） */
+.progress-bar--thick {
+  height: 6px;
+  border-radius: 3px;
+}
+
 /* Feedback/Inline：行内提示，不用弹窗 */
 .inline-error {
   padding: 12px 16px;
@@ -321,4 +327,52 @@ body {
   border-radius: var(--radius-lg);
   padding: 20px;
   box-shadow: var(--shadow);
+}
+
+/* 顶部固定 / 中部滚动 / 底部固定（ued.md S4 的结构） */
+.screen-fill {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.scroll-area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Chip/Mode：胶囊，高 32px，选中为 primary-soft 底 + primary 字 */
+.chip-group {
+  display: inline-flex;
+  gap: 4px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.chip {
+  height: 32px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.chip.is-active {
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.divider {
+  height: 1px;
+  margin: 16px 0;
+  border: none;
+  background: var(--line);
 }
