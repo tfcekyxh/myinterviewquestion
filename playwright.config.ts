@@ -5,6 +5,8 @@ const BASE = `http://127.0.0.1:${PORT}`
 
 export default defineConfig({
   testDir: './e2e',
+  // 所有 spec 共用同一个服务与 data/test.db，而 Playwright 按文件路径排序执行。
+  // 唯一依赖「全新数据库」的用例放在 00-empty.spec.ts 里。
   workers: 1,
   fullyParallel: false,
   reporter: [['list']],
@@ -35,7 +37,9 @@ export default defineConfig({
     // 每次跑 e2e 都用一份全新的 test.db，绝不碰 data/app.db
     command: `rm -f data/test.db && NODE_ENV=test PORT=${PORT} node server/index.js`,
     url: BASE, // 探测根路径，404 也算未就绪
-    reuseExistingServer: !process.env.CI,
+    // 必须 false：若为 true 会复用上一次遗留的服务，而它的 test.db 里已经有数据，
+    // 「未导入时首页是空状态」这类用例就会莫名其妙失败（踩过）
+    reuseExistingServer: false,
     stdout: 'pipe',
   },
 })

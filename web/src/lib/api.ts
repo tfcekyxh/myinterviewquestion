@@ -66,6 +66,11 @@ export async function fetchBank(): Promise<BankInfo> {
   return request<BankInfo>('/api/questions')
 }
 
+/** 含全部题目（导出 / 背诵用） */
+export async function fetchFullBank(): Promise<BankInfo & { questions: Question[] }> {
+  return request<BankInfo & { questions: Question[] }>('/api/questions?full=1')
+}
+
 export async function saveQuestions(
   source: string,
   questions: ParsedQuestion[],

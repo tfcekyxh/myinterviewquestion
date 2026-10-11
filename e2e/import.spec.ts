@@ -28,16 +28,12 @@ async function login(page: import('@playwright/test').Page) {
   await expect(page.getByText('下午好')).toBeVisible()
 }
 
-test('未导入时首页是空状态', async ({ page }) => {
-  await login(page)
-  await expect(page.getByText('还没有题库，点这里导入 PDF')).toBeVisible()
-})
-
 test('导入真实 PDF：解析出 200 题，入库后首页显示规模', async ({ page }) => {
   test.setTimeout(180_000) // 130 页 + 33MB，慢是正常的
 
   await login(page)
-  await page.getByRole('button', { name: '导入题库' }).click()
+  // 直接进导入页：这个用例不关心当前有没有题库，两种状态下都要能进
+  await page.goto('/import')
   await expect(page.getByText('点击选择 PDF 文件')).toBeVisible()
 
   await page.setInputFiles('input[type=file]', PDF)

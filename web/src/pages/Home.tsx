@@ -95,9 +95,9 @@ export default function Home({ user, onLogout }: Props) {
               type="button"
               className="navbar-action"
               style={{ minWidth: 0, height: 20, color: 'var(--primary)' }}
-              onClick={() => navigate('/import')}
+              onClick={() => navigate('/bank')}
             >
-              重新导入
+              管理
             </button>
           </div>
         </>
