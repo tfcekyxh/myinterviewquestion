@@ -18,5 +18,12 @@
     "test:e2e": "playwright test",
     "start:test": "NODE_ENV=test node server/index.js",
     "pdf:extract": "node scripts/extract-questions.mjs"
+  },
+  "dependencies": {
+    "express": "^5.3.0",
+    "express-session": "^1.19.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0"
   }
 }
