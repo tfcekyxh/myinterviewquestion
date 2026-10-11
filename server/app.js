@@ -46,6 +46,16 @@ export function createApp() {
   app.use('/api/reviews', reviewsRouter)
   app.get('/api/health', (_req, res) => res.json({ ok: true }))
 
+  // 1.5 仅「HTTPS 调试模式」下挂：把证书吐出来，方便手机下载安装。
+  //     手机得先用明文 HTTP 拿到证书，才能开始用 HTTPS —— 这是个先有鸡还是先有蛋的问题。
+  if (process.env.HTTPS === '1') {
+    const cer = path.resolve('certs/dev.cer')
+    app.get('/__dev/cert.cer', (_req, res) => {
+      if (!fs.existsSync(cer)) return res.status(404).send('先执行 node scripts/gen-cert.mjs')
+      res.type('application/x-x509-ca-cert').sendFile(cer)
+    })
+  }
+
   // 2. 静态产物（可能还没构建过，缺失时给明确提示而不是白屏）
   if (fs.existsSync(DIST)) {
     app.use(express.static(DIST))

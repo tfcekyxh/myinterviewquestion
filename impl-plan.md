@@ -198,6 +198,9 @@
 - [x] e2e：Playwright 假麦克风跑完整录音流程（含真 MediaRecorder 产出非空音频 + 读取本机 IndexedDB 校验 mimeType）
 - [ ] **真机 5 项清单**（`tech-stack.md` 11.9）：授权弹窗、能录音、能回放、底部按钮不被 Home 条遮挡
   —— **仍未做，必须有 iPhone Safari 才能验**
+  - 怎么验：`npm run cert:gen && npm run dev:https`，手机先装 `http://<本机IP>:3000/__dev/cert.cer`
+    并到「证书信任设置」里开启完全信任，再开 `https://<本机IP>:3443`。
+    **HTTP 一定录不了音** —— Safari 只在安全上下文下暴露 `navigator.mediaDevices`，代码都跑不到。
 
 ### 验收标准（DoD）
 

@@ -17,3 +17,6 @@ pdf/
 tmp/
 test-results/
 playwright-report/
+
+# 本机 HTTPS 自签证书（私钥绝不进仓库）
+certs/

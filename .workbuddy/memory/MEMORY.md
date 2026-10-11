@@ -126,6 +126,15 @@
 - **重要认知：`Figma Framelink MCP` 是只读的**（`get_figma_data` 读文件、`download_figma_images` 下图），**不能建稿**，只适合「已有 Figma 稿 → 生成代码」的方向。Figma 官方也只通过 Plugin API 开放写能力。
 - **版本控制**：git 仓库，主分支 `main`。`.gitignore` 忽略 `node_modules/`、`dist/`、`build/`、`.DS_Store`、`*.log`、`.env*`。`.workbuddy/`（项目记忆）已纳入版本控制。
 
+## 真机调试（录音必须这么测，2026-10-11 定）
+**Safari 只在安全上下文（HTTPS 或 localhost）下给麦克风权限**，手机上的 localhost 是手机自己，
+所以手机开发必须 HTTPS。本机方案已就绪：
+- `npm run cert:gen` → `certs/dev.{crt,key,cer}`（SAN 自动带本机所有局域网 IP，CA:TRUE，1 年）
+- `npm run dev:https` → HTTP(:3000) + HTTPS(:3443)；**HTTPS 只在 `HTTPS=1` 时启动**（否则 e2e 会抢 3443 端口）
+- 手机：先装 `http://<本机IP>:3000/__dev/cert.cer` → 设置里安装 → **证书信任设置里开启完全信任** → 开 `https://<本机IP>:3443`
+- `certs/` 已 gitignore；**换 Wi-Fi 后 IP 变了要重新生成证书**（旧 IP 在 SAN 里写死了）
+- 另一条路是发布到公网 HTTPS（`workbuddy_sites_deploy`），用户倾向数据不出本机，所以选的自签证书
+
 ## 关键源码地图
 | 位置 | 职责 |
 |---|---|

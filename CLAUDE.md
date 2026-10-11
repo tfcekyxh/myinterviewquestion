@@ -59,16 +59,37 @@ iPhone Safari ─HTTPS─▶ Express（单端口：托管 dist + /api）─▶ S
   取到 `N` 表示这一轮背完了；顺序与随机各存一个位置（`posOrder` / `posRandom`）。
   另有 `roundStart`（这一轮的起点）与 `lastRound`（刚背完的一轮的题号，供复习选范围）。
 
+## 真机调试（录音功能必须这么测）
+
+**Safari 只在安全上下文（HTTPS 或 localhost）下才允许访问麦克风**，而手机上的 localhost 是手机自己，
+所以「用 localhost 绕过」不存在。手机打开 `http://192.168.x.x:3000` 会因为不是 HTTPS 被直接拒绝 ——
+`navigator.mediaDevices` 根本是 undefined，代码跑都跑不到，也不会有任何弹窗。
+
+```bash
+npm run cert:gen     # 生成 certs/dev.{crt,key,cer}，SAN 自动带上本机所有局域网 IP
+npm run dev:https    # HTTP(:3000) + HTTPS(:3443) 一起起
+```
+
+然后手机上：先用 Safari 打开 `http://<本机IP>:3000/__dev/cert.cer` 装描述文件，
+**再去「设置 → 通用 → 关于本机 → 证书信任设置」把开关打开**（不做这步 Safari 会一直说无法建立安全连接），
+最后打开 `https://<本机IP>:3443`。
+
+- HTTPS **只在 `HTTPS=1` 时才启动**。不这么做的话 e2e 每次都会去抢 3443，上一轮没退干净就 EADDRINUSE。
+- `certs/` 已在 `.gitignore` 里，私钥绝不进仓库。
+- 换 Wi-Fi / IP 变了要重新 `npm run cert:gen`（SAN 里写死了旧 IP）。
+
 ## 命令
 
 ```bash
 npm run dev          # 前端（Vite，/api 代理到 :3000）
-npm run dev:server   # 后端
+npm run dev:server   # 后端（HTTP）
+npm run dev:https    # 后端 + 真机调试用的 HTTPS
+npm run cert:gen     # 生成自签证书
 npm test             # vitest run（组件测试）
 npm run typecheck    # tsc --noEmit（build 现在也会先跑它）
 npm run test:e2e     # playwright test
 npm run smoke:auth       # 登录接口级冒烟（需先起服务）
-npm run smoke:progress   # 进度接口级冒烟（会覆盖题库与进度，建议跑在 NODE_ENV=test 的服务上）
+npm run smoke:progress   # 进度/复习接口级冒烟（会覆盖题库与进度，建议跑在 NODE_ENV=test 的服务上）
 ```
 
 本机受管 Node 在 `~/.workbuddy/binaries/node/versions/`；`node:sqlite` 需要 Node 22.5+（22.22.2 实测无需 flag）。

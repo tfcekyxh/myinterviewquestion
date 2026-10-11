@@ -136,10 +136,28 @@ export function createRecorder(): Recorder {
     state = 'idle'
   }
 
-  function startMeter() {
-    if (!stream || typeof AudioContext === 'undefined') return
+  /**
+   * 建音频分析链路。
+   *
+   * ⚠️ 必须在**用户手势的同一个任务里**先 new AudioContext（所以是在 await getUserMedia 之前调），
+   * 否则 iOS 上新建出来的 AudioContext 是 suspended 状态，AnalyserNode 永远读到静音 ——
+   * 症状是「录音正常，但波形一直贴着底」。resume() 兜一下，但手势过期后 resume 也救不回来。
+   */
+  function openMeter() {
+    if (typeof AudioContext === 'undefined') return
     try {
       audioCtx = new AudioContext()
+    } catch {
+      audioCtx = null
+      return
+    }
+    if (audioCtx.state === 'suspended') void audioCtx.resume().catch(() => undefined)
+  }
+
+  /** 拿到 stream 之后才接得上分析节点 */
+  function wireMeter() {
+    if (!audioCtx || !stream || audioCtx.state === 'closed') return
+    try {
       const src = audioCtx.createMediaStreamSource(stream)
       analyser = audioCtx.createAnalyser()
       analyser.fftSize = 256
@@ -175,9 +193,14 @@ export function createRecorder(): Recorder {
     if (!isRecorderSupported()) {
       throw new RecorderError('这个浏览器不支持录音，请用 Safari 打开')
     }
+
+    // 先建 AudioContext：此刻还在 pointerdown 的手势里
+    openMeter()
+
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     } catch (e) {
+      teardown()
       throw new RecorderError(describeGetUserMediaError(e))
     }
 
@@ -196,7 +219,7 @@ export function createRecorder(): Recorder {
     media.start()
     startedAt = Date.now()
     state = 'recording'
-    startMeter()
+    wireMeter()
   }
 
   async function stop(): Promise<Recording | null> {
