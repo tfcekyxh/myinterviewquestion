@@ -184,24 +184,40 @@
 
 ### 必须遵守的硬约束
 
-- [ ] **录音逻辑必须抽成 `recorder.ts` 接口**，组件只依赖接口
+- [x] **录音逻辑必须抽成 `recorder.ts` 接口**，组件只依赖接口
   - 原因（实测）：jsdom 里**没有 `MediaRecorder`、没有 `navigator.mediaDevices`**，写在组件里会导致组件测试无法编写
-- [ ] **文件扩展名绝不能写死 `.webm`**，必须按 `recorder.mimeType` 推导
-  - 原因（实测）：Chromium 出 `audio/mp4;codecs=opus`，iPhone 出 `audio/mp4`
-- [ ] **硬约束：进入「对照答案」前，页面上不存在任何能看到答案的入口**（`ued.md` 的设计约束）
+- [x] **文件扩展名绝不能写死 `.webm`**，必须按 `recorder.mimeType` 推导
+  - 原因（实测）：Chromium 出 `audio/mp4;codecs=opus`，iPhone 出 `audio/mp4`。落点是 `extForMime()`，有单测
+- [x] **硬约束：进入「对照答案」前，页面上不存在任何能看到答案的入口**（`ued.md` 的设计约束）
+  - 做法：答案写在 `stage === 'compare'` 的条件里（**根本不进 DOM**），不是用样式藏起来
 
 ### 测试要求
 
-- [ ] RTL：**对照答案前，整个 `document.body.textContent` 都不含答案文本**（这是本阶段最重要的测试）
-- [ ] RTL：三阶段按钮流转
-- [ ] e2e：Playwright 假麦克风跑完整录音流程（`tech-stack.md` 11.6 已验证可行）
+- [x] RTL：**对照答案前，整个 `document.body.textContent` 都不含答案文本**（这是本阶段最重要的测试）
+- [x] RTL：三阶段按钮流转
+- [x] e2e：Playwright 假麦克风跑完整录音流程（含真 MediaRecorder 产出非空音频 + 读取本机 IndexedDB 校验 mimeType）
 - [ ] **真机 5 项清单**（`tech-stack.md` 11.9）：授权弹窗、能录音、能回放、底部按钮不被 Home 条遮挡
+  —— **仍未做，必须有 iPhone Safari 才能验**
 
 ### 验收标准（DoD）
 
-- [ ] iPhone Safari 上真的能录、能回放、听到自己声音
-- [ ] 录音全程看不到答案
-- [ ] 录音失败（拒绝授权）有明确提示，流程不卡死
+- [ ] iPhone Safari 上真的能录、能回放、听到自己声音 —— **未验（需要真机）**
+- [x] 录音全程看不到答案
+- [x] 录音失败（拒绝授权）有明确提示，流程不卡死
+
+### 落地要点（实施后补记）
+
+- **录音只存本机 IndexedDB**（`lib/audioStore.ts`，fail-soft），服务端 `reviews` 只记「哪一题、讲了多久、
+  本机录音的键」。`audio_path` 存的不是服务端路径 —— 这是刻意的，音频不上云。
+- **一轮 = 从这一轮起点背到最后一题**。起点由客户端进背诵页时写成当时的位置，
+  所以从第 129 题接着背，这一轮就是 129–240，而不是永远等于整个题库。服务端在写进度时自动结算。
+- **麦克风手势**：按住不放 → 松手结束；快速点一下 → 开始录音，再点麦克风或点「说完了」结束。
+- ⚠️ **`pointerdown` 上绝对不能 `preventDefault()`**。实测：取消默认行为会把后续的兼容鼠标事件一起吃掉，
+  `pointerup` 再也不来 —— 症状是「按住录音后松手不结束」。防 iOS 长按选中改用 CSS
+  （`user-select: none` / `-webkit-touch-callout: none`）。
+- 松手监听挂在 **window** 上而不是按钮上：手指滑出按钮、事件被重定向时按钮自己的 `pointerup` 会漏。
+- **回放的 objectURL 必须在事件处理里一次算好**，不能放 `useEffect` 里。放 effect 里的话，
+  切到「对照答案」那一刻 URL 还是 null，回放条会先以禁用状态出现一帧再变可用（用户点下去就是空的）。
 
 ---
 
@@ -238,8 +254,8 @@
 - **P2（导入闭环）：已完成** —— 浏览器端 pdfjs 解析 → 预览 → 入库
 - **P2.5（导出/导入 JSON）：已完成** —— `data/app.db` 丢失时的兜底
 - **P3（背诵模式）：已完成** —— 题答同屏 + 顺序/随机 + 进度存服务端
-- **P4（复习 + 录音）：下一步**
-- **P5（兜底与上线收尾）：待做**
+- **P4（复习 + 录音）：代码已完成，真机待验** —— 唯一没做完的是「iPhone Safari 真机 5 项清单」
+- **P5（兜底与上线收尾）：下一步**
 
-测试现状：组件测试 59 条、e2e 14 条、接口级冒烟 2 个脚本（`smoke:auth` 11 项 / `smoke:progress` 21 项）。
-`npm -w web run build` 现在会先跑 `tsc --noEmit`（在这之前构建完全没有类型校验，P0/P2 里埋了 4 处类型错误没被发现）。
+测试现状：组件测试 90 条、e2e 17 条、接口级冒烟 1 个脚本（`smoke:progress` 39 项，含 auth 的等价覆盖）。
+`npm -w web run build` 会先跑 `tsc --noEmit`。**剩下的都是「必须真机/必须上线」才能验的项**。

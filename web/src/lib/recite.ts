@@ -57,3 +57,39 @@ export function currentSeq(p: ProgressState, allSeqs: readonly number[]): number
   const seqs = seqsFor(p, allSeqs)
   return seqs[cursor(p, seqs.length)] ?? allSeqs[0] ?? 1
 }
+
+/** 复习范围：刚背完的一轮 / 整个题库 */
+export type ReviewScope = 'round' | 'all'
+
+/** 「刚背完的一轮」的题号；没有记录就是空数组（此时 S5 里那张卡 disabled） */
+export function roundSeqs(p: ProgressState | null): number[] {
+  const seqs = p?.lastRound?.seqs
+  return Array.isArray(seqs) ? seqs.slice() : []
+}
+
+/** 「第 5 – 10 题」这样的范围文案。随机模式下首尾不是连续区间，所以取 min/max。 */
+export function seqRangeLabel(seqs: readonly number[]): string {
+  if (!seqs.length) return ''
+  let lo = seqs[0]
+  let hi = seqs[0]
+  for (const s of seqs) {
+    if (s < lo) lo = s
+    if (s > hi) hi = s
+  }
+  return `第 ${lo} – ${hi} 题`
+}
+
+/**
+ * 复习用的题目序号序列。
+ * 顺序模式原样返回；随机模式洗一遍（洗牌在调用处只做一次并存进 state，
+ * 否则每次 render 都会换顺序）。
+ */
+export function reviewSeqs(
+  scope: ReviewScope,
+  mode: ReciteMode,
+  allSeqs: readonly number[],
+  lastRound: readonly number[],
+): number[] {
+  const base = scope === 'round' ? lastRound.slice() : allSeqs.slice()
+  return mode === 'random' ? shuffle(base) : base
+}

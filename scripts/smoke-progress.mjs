@@ -99,6 +99,56 @@ check('重置进度 → 200', r.status, 200)
 r = await call('/api/progress', { headers: { Cookie: cookie } })
 check('重置后 posOrder 归零', r.body?.posOrder, 0)
 
+// ── 「刚背完的一轮」结算（题库 10 题）──────────────────────────────
+r = await call('/api/progress', { method: 'PUT', headers: { Cookie: cookie }, body: json({ posOrder: 4, roundStart: 4 }) })
+check('从第 5 题接着背：roundStart=4', r.body?.roundStart, 4)
+check('起点已置但还没背完：lastRound 仍为空', r.body?.lastRound, null)
+
+r = await call('/api/progress', { method: 'PUT', headers: { Cookie: cookie }, body: json({ posOrder: 7 }) })
+check('中途前进不动起点', r.body?.roundStart, 4)
+check('还没背完不结算', r.body?.lastRound, null)
+
+r = await call('/api/progress', { method: 'PUT', headers: { Cookie: cookie }, body: json({ posOrder: 10 }) })
+check('背完后 roundStart 清空', r.body?.roundStart, null)
+check(
+  '背完结算出第 5–10 题（6 题），而不是整个题库',
+  r.body?.lastRound,
+  (v) => v && v.count === 6 && v.seqs.join(',') === '5,6,7,8,9,10',
+)
+
+// 再背一遍：起点归零，结算出来的就是整个题库
+r = await call('/api/progress', { method: 'PUT', headers: { Cookie: cookie }, body: json({ posOrder: 0, roundStart: 0 }) })
+check('再背一遍：posOrder 归零', r.body?.posOrder, 0)
+check('再背一遍：起点归零', r.body?.roundStart, 0)
+check('再背一遍：上一轮的记录还在（首页还能去复习）', r.body?.lastRound, (v) => v && v.count === 6)
+r = await call('/api/progress', { method: 'PUT', headers: { Cookie: cookie }, body: json({ posOrder: 10 }) })
+check('整轮背完结算出 10 题', r.body?.lastRound, (v) => v && v.count === 10 && v.seqs[0] === 1 && v.seqs[9] === 10)
+
+// 换题库后，上一轮的记录必须作废（题都不是那些题了）
+r = await call('/api/questions', { method: 'POST', headers: { Cookie: cookie }, body: json({ source: 'smoke3.json', questions: qs(3) }) })
+r = await call('/api/progress', { headers: { Cookie: cookie } })
+check('换题库后 lastRound 作废', r.body?.lastRound, null)
+
+// ── 复习记录 ────────────────────────────────────────────────────
+r = await call('/api/reviews', { headers: { Cookie: cookie } })
+check('复习记录初始为 0', r.body?.total, 0)
+
+r = await call('/api/reviews', { method: 'POST', headers: { Cookie: cookie }, body: json({ seq: 2, durationMs: 12_000, clipKey: 'local:2-abc' }) })
+check('写入一条复习记录 → 200', r.status, 200)
+
+r = await call('/api/reviews', { method: 'POST', headers: { Cookie: cookie }, body: json({ durationMs: 1000 }) })
+check('缺题号 → 400', r.status, 400)
+
+r = await call('/api/reviews', { method: 'POST', headers: { Cookie: cookie }, body: json({ seq: 999, durationMs: 1000 }) })
+check('题号不在题库里 → 404', r.status, 404)
+
+r = await call('/api/reviews', { headers: { Cookie: cookie } })
+check('复习记录数=1', r.body?.total, 1)
+check('lastAt 有值', r.body?.lastAt, (v) => typeof v === 'number' && v > 0)
+
+r = await call('/api/reviews')
+check('未登录读复习记录 → 401', r.status, 401)
+
 const failed = results.filter((x) => !x.ok)
 console.log(`\n${results.length - failed.length}/${results.length} 通过`)
 process.exit(failed.length ? 1 : 0)

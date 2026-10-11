@@ -52,6 +52,13 @@ export default function Recite() {
           state = { ...state, randOrder, posRandom: 0 }
           persist({ mode: 'random', randOrder, posRandom: 0 })
         }
+        // 记下这一轮的起点：服务端背完时会用它结算「刚背完的一轮」。
+        // 所以从第 129 题接着背，这一轮就是 129–240，而不是永远等于整个题库。
+        const done = state.mode === 'order' ? state.posOrder : state.posRandom
+        if (state.roundStart === null && done < bank.questions.length) {
+          state = { ...state, roundStart: done }
+          persist({ roundStart: done })
+        }
         setQuestions(bank.questions)
         setProg(state)
       } catch (e) {
@@ -114,6 +121,13 @@ export default function Recite() {
     }
     // 切到随机：reshuffle 里已经把 mode 一起设成 random 了
     reshuffle()
+  }
+
+  /** 这一轮重头再背：位置归零，并把这一轮的起点也归零 */
+  function restartRound() {
+    if (!prog) return
+    setProg({ ...withCount(prog, 0), roundStart: 0 })
+    persist({ ...patchForCount(prog.mode, 0), roundStart: 0 })
   }
 
   // 左右滑动 = 上一题 / 下一题（ued.md S4 交互）
@@ -201,8 +215,24 @@ export default function Recite() {
       </div>
 
       {finished && (
-        <div className="inline-info" style={{ marginTop: 12, textAlign: 'center' }}>
-          这一轮背完了
+        <div className="card" style={{ marginTop: 12 }}>
+          <div className="t-body-strong">这一轮背完了</div>
+          <div className="t-caption color-text-2" style={{ marginTop: 4 }}>
+            去复习一遍，对着题目开口讲，比再读一遍记得牢
+          </div>
+          <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+            <button type="button" className="btn-secondary" style={{ flex: 1, height: 40 }} onClick={restartRound}>
+              再背一遍
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              style={{ flex: 1, height: 40 }}
+              onClick={() => navigate('/review?scope=round')}
+            >
+              去复习
+            </button>
+          </div>
         </div>
       )}
 

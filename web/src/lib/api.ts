@@ -87,15 +87,24 @@ export async function logout(): Promise<void> {
 
 export type ReciteMode = 'order' | 'random'
 
+/** 「刚背完的一轮」：从这一轮起点背到最后一题为止的那批题 */
+export interface ReviewRound {
+  seqs: number[]
+  count: number
+}
+
 /**
  * 背诵进度。顺序与随机各存一个位置 —— 两种模式来回切都不会丢进度。
  * randOrder 是随机模式下的题目序号序列（seq 的排列）。
+ * roundStart 是当前这一轮的起点（进入背诵页时写成当时的位置），背完即结算成 lastRound。
  */
 export interface ProgressState {
   mode: ReciteMode
   posOrder: number
   posRandom: number
   randOrder: number[]
+  roundStart: number | null
+  lastRound: ReviewRound | null
   total: number
   updatedAt: number | null
 }
@@ -104,7 +113,9 @@ export async function fetchProgress(): Promise<ProgressState> {
   return request<ProgressState>('/api/progress')
 }
 
-export type ProgressPatch = Partial<Pick<ProgressState, 'mode' | 'posOrder' | 'posRandom' | 'randOrder'>>
+export type ProgressPatch = Partial<
+  Pick<ProgressState, 'mode' | 'posOrder' | 'posRandom' | 'randOrder' | 'roundStart'>
+>
 
 export async function saveProgress(patch: ProgressPatch): Promise<ProgressState> {
   return request<ProgressState>('/api/progress', {
@@ -115,4 +126,16 @@ export async function saveProgress(patch: ProgressPatch): Promise<ProgressState>
 
 export async function resetProgress(): Promise<void> {
   await request<{ ok: true }>('/api/progress', { method: 'DELETE' })
+}
+
+/** 记一条复习记录。音频不上云，只记「哪一题、讲了多久、本机录音的键」 */
+export async function saveReview(input: {
+  seq: number
+  durationMs: number
+  clipKey?: string | null
+}): Promise<void> {
+  await request<{ ok: true }>('/api/reviews', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
 }

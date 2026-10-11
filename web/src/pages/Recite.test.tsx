@@ -22,7 +22,7 @@ const QUESTIONS: Question[] = [1, 2, 3, 4].map((seq) => ({
 }))
 
 function progress(over: Partial<ProgressState> = {}): ProgressState {
-  return { mode: 'order', posOrder: 0, posRandom: 0, randOrder: [], total: 4, updatedAt: null, ...over }
+  return { mode: 'order', posOrder: 0, posRandom: 0, randOrder: [], roundStart: null, lastRound: null, total: 4, updatedAt: null, ...over }
 }
 
 function renderPage() {

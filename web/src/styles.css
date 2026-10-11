@@ -376,3 +376,177 @@ body {
   border: none;
   background: var(--line);
 }
+
+/* ── 复习范围选择（S5）──────────────────────────────────────────── */
+.scope-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  font-family: inherit;
+  text-align: left;
+}
+
+.scope-card.is-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.scope-card:disabled {
+  opacity: 0.55;
+}
+
+/* ── 录音（S6 / S7）────────────────────────────────────────────── */
+.btn-mic {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  font-size: 26px;
+  line-height: 1;
+  font-family: inherit;
+  /* 长按录音：这三条是必须的，否则 iOS 会弹选中/呼出菜单，还会触发滚动 */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.btn-mic.is-recording {
+  background: var(--danger-soft);
+  color: var(--danger);
+  box-shadow: inset 0 0 0 2px var(--danger);
+}
+
+.btn-mic:disabled {
+  opacity: 0.5;
+}
+
+.rec-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rec-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+.rec-time {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 15px;
+  color: var(--danger);
+}
+
+/* 24 根竖条，高度由实时音量驱动 */
+.wave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 32px;
+  margin-top: 12px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.wave > span {
+  flex: 1;
+  min-width: 2px;
+  border-radius: 1px;
+  background: var(--danger);
+  transition: height 80ms linear;
+}
+
+.answer-hidden {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+/* ── 回放条（S8）──────────────────────────────────────────────── */
+.replay-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.replay-play {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border: none;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.replay-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.replay-track {
+  position: relative;
+  height: 14px;
+  margin-top: 2px;
+}
+
+.replay-fill {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--primary);
+}
+
+.replay-track::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+/* 透明地叠在视觉进度条上面，直接白拿原生拖拽手感 */
+.replay-track input[type='range'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+}
+
+.replay-track input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+}

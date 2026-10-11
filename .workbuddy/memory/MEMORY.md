@@ -5,16 +5,25 @@
 
 **用户设备：只用 iPhone。** 所有兼容性决策以此为前提。
 
-## P0–P3 已落地（2026-10-11，代码在仓库里）
+## P0–P4 已落地（2026-10-11，代码在仓库里）
 
 - **P0 PDF 解析：准确率 100%**（200/200，无需 OCR）。规则：**题干行字号 9.65 vs 正文 8.25**，靠字号台阶切题——不能按编号/按页/按空行切。详见 `pdf-parse-report.md` 与 `web/src/lib/pdf/parse.ts`。
 - **P1 骨架+登录**：Express 5 + `node:sqlite` + `scrypt` + 自写 SqliteStore；单账号 `admin`，密码在 `.env`（不进 git）。
 - **P2 导入闭环**：浏览器端 pdfjs → `parse.ts` 切题 → 预览 → 整批入库（事务）。
 - **P2.5 导出/导入题库 JSON**：`/bank`，`data/app.db` 丢失时的兜底。
 - **P3 背诵模式**：`/recite`（题答同屏 + 顺序/随机 + 进度存服务端）；首页进度卡；`/bank` 可重置进度。
+- **P4 复习模式**：`/review`（选范围）+ `/review/run`（待录 → 录音中 → 对照答案）；录音只存本机。
 - 代码结构：根目录 npm workspaces，`server/`（Express ESM）+ `web/`（Vite/React/TS）+ `e2e/` + `scripts/`。
 - 命令：`npm run dev:server`（:3000）、`npm -w web run dev`、`npm test`、`npm run typecheck`、`npm run test:e2e`、`npm run pdf:extract`、`npm run smoke:auth` / `smoke:progress`。
 - **Node 22 可直接运行 `.ts`**（类型擦除），所以 Node 脚本与浏览器共用同一份解析源码。
+
+## 录音与复习（P4 定，改动前先看）
+- **答案只在 `stage === 'compare'` 的条件里渲染**，不是用样式藏起来 —— 这是产品核心约束，有专门的组件测试。
+- **音频只存本机 IndexedDB**（`lib/audioStore.ts`，fail-soft），**不上云**；`reviews.audio_path` 存的是本机录音的键。
+- **录音逻辑全在 `lib/recorder.ts` 接口后**（jsdom 里没有 MediaRecorder）。扩展名一律 `extForMime(mimeType)` 推导，**绝不写死 `.webm`**。
+- ⚠️ **`pointerdown` 上不能 `preventDefault()`** —— 会吃掉后续 pointerup，症状是「按住录音松手不结束」。防长按选中用 CSS。
+- **objectURL（回放）必须在事件处理里一次算好**，放 `useEffect` 里会让 UI 先以禁用态出现一帧。
+- **一轮 = 从这一轮起点背到最后一题**；起点由客户端进背诵页时写，服务端写进度时结算成 `lastRound`。
 
 ## 进度模型（P3 定，改动前先看）
 - `progress` 表是**单行 JSON**（`id=1` 恒成立），字段 `mode / posOrder / posRandom / randOrder / total`。
@@ -82,10 +91,10 @@
 
 ## 测试策略（2026-10-10 定，详见 `tech-stack.md` 第十一节，已实测跑通）
 **用户定：RTL 做 component test，Playwright 做 e2e。** 三层验证：
-- **L1 组件** Vitest + RTL + jsdom（React 19）→ 当前 **59 条全绿**
-- **L2 e2e** Playwright（Chromium + `--use-fake-device-for-media-stream` 假麦克风）→ 当前 **14 条全绿**，含 iPhone 13 视口 390×844
-- **L3 真机** iPhone Safari 手动清单 5 项 —— **不可省**，macOS WebKit ≠ iOS Safari
-- 另有接口级冒烟：`scripts/smoke-auth.mjs`（11 项）、`scripts/smoke-progress.mjs`（21 项）
+- **L1 组件** Vitest + RTL + jsdom（React 19）→ 当前 **90 条全绿**
+- **L2 e2e** Playwright（Chromium + `--use-fake-device-for-media-stream` 假麦克风）→ 当前 **17 条全绿**，含 iPhone 13 视口 390×844
+- **L3 真机** iPhone Safari 手动清单 5 项 —— **不可省**，macOS WebKit ≠ iOS Safari。**P4 的录音真机清单还没做。**
+- 另有接口级冒烟：`scripts/smoke-auth.mjs`（11 项）、`scripts/smoke-progress.mjs`（39 项，含复习记录与轮次结算）
 
 **`vite build` 不做类型检查（esbuild 只剥类型）。`npm run build` 已改成先跑 `tsc --noEmit`** —— 补上后立刻暴露了 4 处真 bug，其中 `Import.tsx` 的 `stage` 判断漏 `'saving'` 会导致「入库中…」永远看不到。
 
@@ -121,15 +130,20 @@
 | 位置 | 职责 |
 |---|---|
 | `server/db.js` | `node:sqlite` 建表 + `progress` 单行 JSON 读写 + 老结构迁移 |
-| `server/routes/auth.js` / `questions.js` / `progress.js` | 登录、题库（整批替换）、进度 |
+| `server/routes/auth.js` / `questions.js` / `progress.js` / `reviews.js` | 登录、题库（整批替换）、进度、复习记录 |
 | `web/src/lib/pdf/parse.ts` | **切题纯函数**（Node 与浏览器共用），13 条单测 |
 | `web/src/lib/pdf/extract.ts` | 浏览器端 pdfjs 抽文本项（动态 import，只有导入页加载） |
 | `web/src/lib/recite.ts` | 洗牌与进度换算纯逻辑 |
-| `web/src/lib/api.ts` | 前端访问后端的唯一入口（含 `ProgressState`） |
-| `web/src/pages/` | `Login` / `Home` / `Import` / `Bank` / `Recite` |
+| `web/src/lib/recorder.ts` | **录音抽象层**（jsdom 没 MediaRecorder，组件测试必须换桩）+ 扩展名推导 |
+| `web/src/lib/audioStore.ts` | 录音存本机 IndexedDB（fail-soft，音频不上云） |
+| `web/src/lib/api.ts` | 前端访问后端的唯一入口（含 `ProgressState` / `ReviewRound`） |
+| `web/src/pages/` | `Login` / `Home` / `Import` / `Bank` / `Recite` / `ReviewScope` / `Review` |
 | `web/src/styles.css` | 原生 CSS Variables 映射 `ued.md` 设计令牌 |
+| `web/src/test-setup.ts` | 给 jsdom 补 `createObjectURL` 与音频 `play/pause` |
 
 ## 当前卡点
-无阻塞。**下一步 P4：复习模式（含录音）**，硬约束见 `impl-plan.md` 与 `CLAUDE.md`：
-① 录音抽成 `web/src/lib/recorder.ts` 接口；② 扩展名按 `recorder.mimeType` 推导，绝不写死 `.webm`；
-③ **进「对照答案」前，页面上不得存在任何能看到答案的入口**（组件测试要断言整个 body 不含答案文本，且须先剔除 `script/style/template`）。
+代码层面 P0–P4 都完成了。**剩下两件必须真机/必须上线才能做的**：
+① **P4 的 iPhone Safari 真机 5 项清单**（授权弹窗、能录音、能回放、底部按钮不被 Home 条遮挡）——模拟器不算；
+② P5 的上线收尾（`manifest.webmanifest` + 添加到主屏幕、网络失败提示、导出兜底已提前做完）。
+
+**下一步默认做 P5。**

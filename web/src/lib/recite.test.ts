@@ -3,7 +3,7 @@ import type { ProgressState } from './api'
 import { currentSeq, cursor, doneCount, isFinished, patchForCount, seqsFor, shuffle, withCount } from './recite'
 
 function progress(over: Partial<ProgressState> = {}): ProgressState {
-  return { mode: 'order', posOrder: 0, posRandom: 0, randOrder: [], total: 4, updatedAt: null, ...over }
+  return { mode: 'order', posOrder: 0, posRandom: 0, randOrder: [], roundStart: null, lastRound: null, total: 4, updatedAt: null, ...over }
 }
 
 describe('shuffle', () => {

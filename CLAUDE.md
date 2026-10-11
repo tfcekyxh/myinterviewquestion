@@ -31,6 +31,11 @@ iPhone Safari ─HTTPS─▶ Express（单端口：托管 dist + /api）─▶ S
 6. **录音必须抽成 `src/lib/recorder.ts` 接口**，组件只依赖接口。实测：jsdom 里**没有 `MediaRecorder`、也没有 `navigator.mediaDevices`**，写在组件里就没法写组件测试。
 7. **录音文件扩展名绝不能写死 `.webm`**，必须按 `recorder.mimeType` 推导。实测 Chromium 出 `audio/mp4;codecs=opus`，iPhone 出 `audio/mp4`。
 8. **复习模式的硬约束**：进入「对照答案」之前，页面上不允许存在任何能看到答案的入口。
+   做法是把答案放在 `stage === 'compare'` 的条件里（**根本不进 DOM**），不是用样式藏起来。
+9. **`pointerdown` 上绝不能 `preventDefault()`**。实测：取消默认行为会把后续的兼容鼠标事件一起吃掉，
+   `pointerup` 再也不来 —— 症状是「按住录音后松手不结束」。防 iOS 长按选中改用 CSS（`user-select` / `-webkit-touch-callout`）。
+10. **音频只存本机**（IndexedDB，`src/lib/audioStore.ts`），**不上云**；服务端 `reviews` 只记元数据。
+    `audio_path` 存的是本机录音的键，不是服务端路径。
 
 ## 测试约定
 
@@ -40,8 +45,10 @@ iPhone Safari ─HTTPS─▶ Express（单端口：托管 dist + /api）─▶ S
 - Playwright 已知坑：`devices['iPhone 13']` 默认切 WebKit，需在 `...devices` 之前显式写 `browserName: 'chromium'`；`webServer.url` 探测根路径且 404 算未就绪；headless shell 是独立组件、`install chromium` 不一定装上它（本机即缺）→ 配置里加 `channel: 'chromium'` 绕开。
 - **断言"答案没泄露"时，先剔除 `script/style/template` 再取 `textContent`** —— 内联脚本的源码会被算进 `body.textContent`，导致断言永远失败。
 - **e2e 各 spec 顺序执行、共用同一个服务与 `data/test.db`**，所以每个 spec 要么自播种数据、要么把依赖初始状态的用例放进 `00-empty.spec.ts`（唯一在全新库上跑的）。
-  `recite.spec.ts` 会把题库换成 12 道 fixture，必须排在 `import.spec.ts` 之后（文件名排序靠后即可）。
+  `recite.spec.ts` / `review.spec.ts` 都会把题库换成自己的 fixture，必须排在 `import.spec.ts` 之后（文件名排序靠后即可）。
 - **改了首页/主流程的文案，记得同步 e2e 里的断言** —— 断言写的是可见文本，文案一改就红。
+- **用 objectURL 的资源（录音回放）必须在事件处理里一次算好**，放 `useEffect` 里会让 UI 先以禁用态出现一帧。
+- `src/test-setup.ts` 给 jsdom 补了 `createObjectURL` 与音频 `play/pause`（jsdom 都没实现），动它要谨慎。
 
 ## 数据结构约定
 
@@ -50,6 +57,7 @@ iPhone Safari ─HTTPS─▶ Express（单端口：托管 dist + /api）─▶ S
 - 表：`users` / `questions` / `progress` / `reviews` / `meta` / `sessions`。
 - `progress` 是**单行 JSON**（`id=1` 恒成立）。位置语义是「**已背题数**」，取值 `0..N`，
   取到 `N` 表示这一轮背完了；顺序与随机各存一个位置（`posOrder` / `posRandom`）。
+  另有 `roundStart`（这一轮的起点）与 `lastRound`（刚背完的一轮的题号，供复习选范围）。
 
 ## 命令
 

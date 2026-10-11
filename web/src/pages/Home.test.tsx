@@ -12,7 +12,7 @@ const mockedProgress = vi.mocked(fetchProgress)
 const user = { userId: 1, account: 'admin' }
 
 function progress(over: Partial<ProgressState> = {}): ProgressState {
-  return { mode: 'order', posOrder: 0, posRandom: 0, randOrder: [], total: 240, updatedAt: null, ...over }
+  return { mode: 'order', posOrder: 0, posRandom: 0, randOrder: [], roundStart: null, lastRound: null, total: 240, updatedAt: null, ...over }
 }
 
 function renderPage() {

@@ -102,8 +102,8 @@ export default function Home({ user, onLogout }: Props) {
           <button type="button" className="btn-primary" onClick={() => navigate('/recite')}>
             {done === 0 ? '开始背诵' : '继续背诵'}
           </button>
-          <button type="button" className="btn-secondary" style={{ marginTop: 12 }} disabled>
-            开始复习（下一阶段接入）
+          <button type="button" className="btn-secondary" style={{ marginTop: 12 }} onClick={() => navigate('/review')}>
+            开始复习
           </button>
           <div
             className="t-caption color-text-3"

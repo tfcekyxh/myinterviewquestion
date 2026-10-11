@@ -36,6 +36,8 @@ db.exec(`
     updated_at INTEGER NOT NULL
   );
 
+  -- audio_path 存的**不是服务端路径**，而是本机录音的键（IndexedDB key）：
+  -- 按既定决策音频只存本机，不上云，录不上就是 NULL。
   CREATE TABLE IF NOT EXISTS reviews (
     id          INTEGER PRIMARY KEY,
     question_id INTEGER NOT NULL,
