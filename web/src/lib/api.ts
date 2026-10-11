@@ -45,6 +45,37 @@ export async function login(account: string, password: string): Promise<SessionU
   })
 }
 
+export interface Question {
+  seq: number
+  question: string
+  answer: string
+}
+
+export interface BankInfo {
+  total: number
+  source: string | null
+  importedAt: number | null
+}
+
+export interface ParsedQuestion {
+  question: string
+  answer: string
+}
+
+export async function fetchBank(): Promise<BankInfo> {
+  return request<BankInfo>('/api/questions')
+}
+
+export async function saveQuestions(
+  source: string,
+  questions: ParsedQuestion[],
+): Promise<{ ok: true; total: number }> {
+  return request<{ ok: true; total: number }>('/api/questions', {
+    method: 'POST',
+    body: JSON.stringify({ source, questions }),
+  })
+}
+
 export async function logout(): Promise<void> {
   await request<{ ok: true }>('/api/logout', { method: 'POST' })
 }

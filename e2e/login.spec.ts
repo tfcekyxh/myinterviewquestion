@@ -36,12 +36,13 @@ test('登录成功后刷新页面不掉线', async ({ page }) => {
   await page.getByLabel('密码', { exact: true }).fill(password)
   await page.getByRole('button', { name: '登录' }).click()
 
-  await expect(page.getByText('题库功能待接入')).toBeVisible()
+  await expect(page.getByText('下午好')).toBeVisible()
 
   // 关键：刷新
   await page.reload()
-  await expect(page.getByText('题库功能待接入')).toBeVisible()
-  await expect(page.getByText(`已登录：${account}`)).toBeVisible()
+  await expect(page.getByText('下午好')).toBeVisible()
+  // 刷新后仍然认得这个账号 —— 说明服务端的 session 没丢
+  await expect(page.getByText(account)).toBeVisible()
 })
 
 test('深链接刷新也能保持登录（Express 兜底路由生效）', async ({ page }) => {
@@ -49,12 +50,12 @@ test('深链接刷新也能保持登录（Express 兜底路由生效）', async 
   await page.getByLabel('账号', { exact: true }).fill(account)
   await page.getByLabel('密码', { exact: true }).fill(password)
   await page.getByRole('button', { name: '登录' }).click()
-  await expect(page.getByText('题库功能待接入')).toBeVisible()
+  await expect(page.getByText('下午好')).toBeVisible()
 
   await page.goto('/recite')
   await page.reload()
   // /recite 目前没有对应路由，会被重定向回首页；若掉线则会回到登录页
-  await expect(page.getByText('题库功能待接入')).toBeVisible()
+  await expect(page.getByText('下午好')).toBeVisible()
 })
 
 test('登出后回到登录页，再刷新仍是未登录', async ({ page }) => {
@@ -62,7 +63,7 @@ test('登出后回到登录页，再刷新仍是未登录', async ({ page }) => 
   await page.getByLabel('账号', { exact: true }).fill(account)
   await page.getByLabel('密码', { exact: true }).fill(password)
   await page.getByRole('button', { name: '登录' }).click()
-  await expect(page.getByText('题库功能待接入')).toBeVisible()
+  await expect(page.getByText('下午好')).toBeVisible()
 
   await page.getByRole('button', { name: '退出登录' }).click()
   await expect(page.getByLabel('账号', { exact: true })).toBeVisible()

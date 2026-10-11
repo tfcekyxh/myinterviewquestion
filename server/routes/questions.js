@@ -1,0 +1,62 @@
+// 题库：查询规模、批量入库。
+// 入库是「整批替换」：换题库后旧的进度与题一律作废，必须在同一事务里完成。
+import { Router } from 'express'
+import { requireAuth } from './auth.js'
+import { db, getMeta, setMeta } from '../db.js'
+
+export const questionsRouter = Router()
+
+questionsRouter.use(requireAuth)
+
+/** 题库概况。带 ?full=1 时同时返回全部题目（背诵页用） */
+questionsRouter.get('/', (req, res) => {
+  const total = db.prepare('SELECT COUNT(*) AS c FROM questions').get().c
+  const body = {
+    total,
+    source: getMeta('source_pdf'),
+    importedAt: Number(getMeta('imported_at') ?? 0) || null,
+  }
+  if (req.query.full === '1') {
+    const rows = db.prepare('SELECT seq, question, answer FROM questions ORDER BY seq').all()
+    return res.json({ ...body, questions: rows })
+  }
+  res.json(body)
+})
+
+questionsRouter.post('/', (req, res) => {
+  const { source, questions } = req.body ?? {}
+
+  if (!Array.isArray(questions) || questions.length === 0) {
+    return res.status(400).json({ error: '没有解析到题目，无法入库' })
+  }
+  if (questions.length > 5000) {
+    return res.status(400).json({ error: '题目数量过多（> 5000），请确认是不是解析错了' })
+  }
+  for (const q of questions) {
+    if (!q || typeof q.question !== 'string' || !q.question.trim()) {
+      return res.status(400).json({ error: '存在空的题干，请检查解析结果' })
+    }
+  }
+
+  try {
+    db.exec('BEGIN')
+    db.prepare('DELETE FROM questions').run()
+    // 换了题库，旧进度就没有任何意义了
+    db.prepare('DELETE FROM progress').run()
+    const insert = db.prepare(
+      'INSERT INTO questions (seq, question, answer, source_pdf) VALUES (?, ?, ?, ?)',
+    )
+    questions.forEach((q, i) => {
+      insert.run(i + 1, q.question.trim(), String(q.answer ?? ''), typeof source === 'string' ? source : null)
+    })
+    setMeta('source_pdf', typeof source === 'string' ? source : '')
+    setMeta('imported_at', String(Date.now()))
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    console.error('[入库失败]', e)
+    return res.status(500).json({ error: '入库失败，题库未被修改' })
+  }
+
+  res.json({ ok: true, total: questions.length })
+})

@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useSession } from './lib/session'
 import Login from './pages/Login'
 import Home from './pages/Home'
+import Import from './pages/Import'
 
 export default function App() {
   const { user, loading, error, setUser, refresh } = useSession()
@@ -26,6 +27,10 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login onSuccess={refresh} />} />
+      <Route
+        path="/import"
+        element={user ? <Import /> : <Navigate to="/login" replace />}
+      />
       <Route
         path="/"
         element={
