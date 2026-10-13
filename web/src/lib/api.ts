@@ -134,6 +134,37 @@ export async function logout(): Promise<void> {
   await request<{ ok: true }>('/api/logout', { method: 'POST' })
 }
 
+/**
+ * 导出整库文件（SQLite 源文件）。
+ * 和「导出题库 JSON」的区别：JSON 只有题目，这个连**背诵进度、复习记录、账号**一起带走。
+ * 所以服务端数据真丢了，靠它才复原得回来。
+ */
+export async function downloadBackup(): Promise<Blob> {
+  const res = await fetch('/api/backup', { credentials: 'same-origin' })
+  if (!res.ok) throw new ApiError('导出失败，请重试', res.status)
+  return res.blob()
+}
+
+/** 用整库文件还原。**会覆盖当前所有数据**（题库、进度、复习记录） */
+export async function restoreBackup(file: File): Promise<{ ok: true; total: number }> {
+  const res = await fetch('/api/backup', {
+    method: 'POST',
+    credentials: 'same-origin',
+    // 整个文件原样送过去，别设 Content-Type: application/json
+    headers: { 'Content-Type': 'application/octet-stream' },
+    body: file,
+  })
+  const text = await res.text()
+  let data: { ok?: boolean; total?: number; error?: string } = {}
+  try {
+    data = text ? JSON.parse(text) : {}
+  } catch {
+    /* 网关回 HTML 之类 */
+  }
+  if (!res.ok) throw new ApiError(data.error ?? '还原失败，数据未被修改', res.status)
+  return data as { ok: true; total: number }
+}
+
 export type ReciteMode = 'order' | 'random'
 
 /** 「刚背完的一轮」：从这一轮起点背到最后一题为止的那批题 */

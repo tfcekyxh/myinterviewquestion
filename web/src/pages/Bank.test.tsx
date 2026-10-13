@@ -3,17 +3,26 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import Bank from './Bank'
-import { fetchFullBank, saveQuestions } from '../lib/api'
+import { downloadBackup, fetchFullBank, restoreBackup, saveQuestions } from '../lib/api'
 
-vi.mock('../lib/api', () => ({ fetchFullBank: vi.fn(), saveQuestions: vi.fn() }))
+vi.mock('../lib/api', () => ({
+  fetchFullBank: vi.fn(),
+  saveQuestions: vi.fn(),
+  downloadBackup: vi.fn(),
+  restoreBackup: vi.fn(),
+}))
 
 const mockedFetch = vi.mocked(fetchFullBank)
 const mockedSave = vi.mocked(saveQuestions)
+const mockedDownloadDb = vi.mocked(downloadBackup)
+const mockedRestoreDb = vi.mocked(restoreBackup)
 
 // jsdom 没有 createObjectURL / revokeObjectURL
 beforeEach(() => {
   mockedFetch.mockReset()
   mockedSave.mockReset()
+  mockedDownloadDb.mockReset()
+  mockedRestoreDb.mockReset()
   Object.assign(URL, {
     createObjectURL: vi.fn(() => 'blob:fake'),
     revokeObjectURL: vi.fn(),
@@ -105,5 +114,48 @@ describe('Bank（导出 / 导入 JSON 兜底）', () => {
   it('有「重新导入 PDF」的入口', () => {
     renderPage()
     expect(screen.getByRole('button', { name: '重新导入 PDF' })).toBeInTheDocument()
+  })
+})
+
+describe('Bank（数据库文件备份）', () => {
+  function dbFile(name = '备份.db') {
+    return new File([new Uint8Array([1, 2, 3])], name, { type: 'application/octet-stream' })
+  }
+
+  it('导出整库文件：拿到二进制就触发下载', async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+    mockedDownloadDb.mockResolvedValue(new Blob(['x'], { type: 'application/octet-stream' }))
+
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: '导出数据库文件' }))
+
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled())
+    expect(click).toHaveBeenCalled()
+    expect(await screen.findByText('已导出数据库文件，收好它')).toBeInTheDocument()
+    click.mockRestore()
+  })
+
+  it('还原是全量覆盖，所以必须先二次确认才真的提交', async () => {
+    mockedRestoreDb.mockResolvedValue({ ok: true, total: 200 })
+    renderPage()
+
+    fireEvent.change(screen.getByLabelText('选择数据库文件'), { target: { files: [dbFile()] } })
+
+    // 选完文件不能直接就覆盖了
+    expect(await screen.findByText(/确定用「备份.db」覆盖当前数据吗/)).toBeInTheDocument()
+    expect(mockedRestoreDb).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: '确定覆盖' }))
+    await waitFor(() => expect(mockedRestoreDb).toHaveBeenCalledOnce())
+    expect(await screen.findByText('已还原，题库共 200 题')).toBeInTheDocument()
+  })
+
+  it('二次确认里点取消就不动数据', async () => {
+    renderPage()
+    fireEvent.change(screen.getByLabelText('选择数据库文件'), { target: { files: [dbFile()] } })
+    await userEvent.click(await screen.findByRole('button', { name: '取消' }))
+
+    expect(mockedRestoreDb).not.toHaveBeenCalled()
+    expect(screen.queryByText(/确定用/)).not.toBeInTheDocument()
   })
 })

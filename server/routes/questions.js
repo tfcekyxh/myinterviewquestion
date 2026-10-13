@@ -43,6 +43,9 @@ questionsRouter.post('/', (req, res) => {
     db.prepare('DELETE FROM questions').run()
     // 换了题库，旧进度就没有任何意义了
     db.prepare('DELETE FROM progress').run()
+    // 复习记录同理：它记的是 question_id，题一换就成了指向空气的脏数据，
+    // 「复习过几题」也会一直显示错的数字
+    db.prepare('DELETE FROM reviews').run()
     const insert = db.prepare(
       'INSERT INTO questions (seq, question, answer, source_pdf) VALUES (?, ?, ?, ?)',
     )

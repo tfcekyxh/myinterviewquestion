@@ -62,13 +62,14 @@ test('导出 → 覆盖 → 导回：题库能被完整救回来', async ({ page
   expect(backup.questions).toHaveLength(200)
 
   // 2. 故意用一份 1 题的 JSON 覆盖掉题库
+  //    （页面上现在有两个 file input：JSON 的和数据库的，必须按 aria-label 指名）
   await page.goto('/bank')
-  await page.setInputFiles('input[type=file]', SMALL)
+  await page.setInputFiles('input[aria-label="选择 JSON 文件"]', SMALL)
   await expect(page.getByText('已背 0 / 1')).toBeVisible({ timeout: 30_000 })
 
   // 3. 把备份导回来
   await page.goto('/bank')
-  await page.setInputFiles('input[type=file]', BACKUP)
+  await page.setInputFiles('input[aria-label="选择 JSON 文件"]', BACKUP)
   await expect(page.getByText('已背 0 / 200')).toBeVisible({ timeout: 30_000 })
 
   // 内容与原题一致，且顺序保留

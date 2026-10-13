@@ -5,6 +5,18 @@
 
 **用户设备：只用 iPhone。** 所有兼容性决策以此为前提。
 
+## 整库导出 / 还原（2026-10-13 新增，动这块前必看）
+- **和「导出题库 JSON」是两回事**：JSON 只带题目，整库 `.db` 文件连**进度、复习记录、账号**一起带走。
+  服务端数据真丢了，只有靠它完整复原。入口在 `/bank` 页下半部分「数据库备份」。
+- `GET /api/backup` 用 **`VACUUM INTO` 做一致性快照**再发，不直接 copy 正在写的 .db。
+- `POST /api/restore` 收**原始字节**，所以挂 `express.raw`，**不能走全局 `express.json`**（会解析坏）。
+  ⚠️ 反过来：客户端带 `application/json` 头 POST 二进制，会被全局 json 解析器拦成 **400**，到不了鉴权。
+- **还原顺序不能乱**：先验文件（文件头 → 缺表 → 真读一次）→ 关连接 → 旧库改名 `.bak` →
+  落新文件 → 清 `-journal/-wal/-shm` → 重开；**任一步失败把 `.bak` 换回去**。
+- 还原后要**把当前 session 写回新库**，否则用户被踢下线，看起来像「还原弄坏了」。
+- ⚠️ `server/db.js` 的 `db` 是 **`export let`**（ESM live binding），还原后重新赋值。
+  **各处 `db.prepare()` 必须写在处理函数里**，不能在模块顶层把连接存成局部常量——那样换库后会拿着旧连接。
+
 ## P0–P5 已全部完成（2026-10-13）
 - **P4 真机 5 项清单已验完**：iPhone Safari 上授权弹窗正常、能录、能回放、底部按钮不被 Home 条遮挡、加到主屏幕正常。
   → **录音路线（MediaRecorder + 自签 HTTPS 本地调试）在真机上成立**，不用再怀疑。
@@ -102,7 +114,7 @@
 - **L1 组件** Vitest + RTL + jsdom（React 19）→ 当前 **96 条全绿**
 - **L2 e2e** Playwright（Chromium + `--use-fake-device-for-media-stream` 假麦克风）→ 当前 **20 条全绿**，含 iPhone 13 视口 390×844
 - **L3 真机** iPhone Safari 手动清单 5 项 —— **2026-10-13 已验完，全过**（模拟器不算，但真机这次真跑了）
-- 另有接口级冒烟：`scripts/smoke-auth.mjs`（11 项）、`scripts/smoke-progress.mjs`（39 项，含复习记录与轮次结算）
+- 另有接口级冒烟：`scripts/smoke-auth.mjs`（11 项）、`scripts/smoke-progress.mjs`（39 项，含复习记录与轮次结算）、`scripts/smoke-backup.mjs`（22 项，自带一次性服务与临时库，跑完删）
 
 **`vite build` 不做类型检查（esbuild 只剥类型）。`npm run build` 已改成先跑 `tsc --noEmit`** —— 补上后立刻暴露了 4 处真 bug，其中 `Import.tsx` 的 `stage` 判断漏 `'saving'` 会导致「入库中…」永远看不到。
 
@@ -160,6 +172,7 @@
 |---|---|
 | `server/db.js` | `node:sqlite` 建表 + `progress` 单行 JSON 读写 + 老结构迁移；支持 `DB_PATH` 指定库文件 |
 | `server/routes/auth.js` / `questions.js` / `progress.js` / `reviews.js` | 登录、题库（整批替换）、进度、复习记录 |
+| `server/routes/backup.js` | **整库导出 / 还原**（`GET` 下载 .db、`POST` 上传还原） |
 | `web/src/lib/pdf/parse.ts` | **切题纯函数**（Node 与浏览器共用），13 条单测 |
 | `web/src/lib/pdf/extract.ts` | 浏览器端 pdfjs 抽文本项（动态 import，只有导入页加载） |
 | `web/src/lib/recite.ts` | 洗牌与进度换算纯逻辑 |

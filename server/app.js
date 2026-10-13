@@ -11,6 +11,7 @@ import { authRouter } from './routes/auth.js'
 import { questionsRouter } from './routes/questions.js'
 import { progressRouter } from './routes/progress.js'
 import { reviewsRouter } from './routes/reviews.js'
+import { backupRouter } from './routes/backup.js'
 import { SqliteStore, pruneSessions } from './sessionStore.js'
 
 const DIST = path.resolve('web/dist')
@@ -44,6 +45,9 @@ export function createApp() {
   app.use('/api/questions', questionsRouter)
   app.use('/api/progress', progressRouter)
   app.use('/api/reviews', reviewsRouter)
+  // 整库导出 / 还原。body 是整个 .db 文件的原始字节，所以这里要 raw，
+  // 不能走全局的 express.json —— 否则二进制会被当 JSON 解析坏掉
+  app.use('/api/backup', express.raw({ type: '*/*', limit: '200mb' }), backupRouter)
   app.get('/api/health', (_req, res) => res.json({ ok: true }))
 
   // 1.5 仅「HTTPS 调试模式」下挂：把证书吐出来，方便手机下载安装。

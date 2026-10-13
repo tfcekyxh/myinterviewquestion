@@ -16,9 +16,17 @@ const dbPath = process.env.DB_PATH
 // 用 DB_PATH 时只建临时文件自己所在的目录，不顺手造一个空的 data/
 fs.mkdirSync(path.dirname(dbPath), { recursive: true })
 
-export const db = new DatabaseSync(dbPath)
+/**
+ * ⚠️ 这里是 `let` 而不是 `const`：整库还原（/api/restore）会换掉数据库文件，
+ * 连接必须重新打开。ESM 的 live binding 保证所有 import 方（`routes/*`、`sessionStore`）
+ * 下次访问 `db` 时拿到的就是新连接 —— 前提是别在模块顶层就把它展开成局部常量，
+ * 所以各处的 `db.prepare(...)` 都写在处理函数里。
+ */
+export const DB_PATH = dbPath
 
-db.exec(`
+/** 建表 + 老结构迁移。**每次打开连接都要跑一遍**：整库还原后的文件可能来自旧版本 */
+function ensureSchema(conn) {
+  conn.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id        INTEGER PRIMARY KEY,
     account   TEXT NOT NULL UNIQUE,
@@ -64,13 +72,12 @@ db.exec(`
   );
 `)
 
-// P3 把 progress 从「一行三字段」改成了「一行 JSON」。老结构直接重建——
-// P3 之前根本没有写入过真实进度，重建不会丢任何东西。
-{
-  const cols = db.prepare('PRAGMA table_info(progress)').all().map((c) => c.name)
+  // P3 把 progress 从「一行三字段」改成了「一行 JSON」。老结构直接重建——
+  // P3 之前根本没有写入过真实进度，重建不会丢任何东西。
+  const cols = conn.prepare('PRAGMA table_info(progress)').all().map((c) => c.name)
   if (!cols.includes('data')) {
-    db.exec('DROP TABLE progress')
-    db.exec(`
+    conn.exec('DROP TABLE progress')
+    conn.exec(`
       CREATE TABLE progress (
         id         INTEGER PRIMARY KEY CHECK (id = 1),
         data       TEXT NOT NULL,
@@ -78,6 +85,27 @@ db.exec(`
       );
     `)
   }
+}
+
+function open() {
+  const conn = new DatabaseSync(dbPath)
+  ensureSchema(conn)
+  return conn
+}
+
+export let db = open()
+
+/** 整库还原用：换文件前必须先关连接，否则 Windows/部分平台上无法替换文件 */
+export function closeDb() {
+  try {
+    db.close()
+  } catch {
+    // 已经关了就算了
+  }
+}
+
+export function reopenDb() {
+  db = open()
 }
 
 /** 读取进度；没存过或数据坏了都返回 null，由调用方给默认值 */
