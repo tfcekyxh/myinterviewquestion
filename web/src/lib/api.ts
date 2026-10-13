@@ -14,16 +14,61 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
-    ...init,
-    credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
-  })
-  const text = await res.text()
-  const data = text ? JSON.parse(text) : null
+/**
+ * 网络层失败的统一文案。
+ * fetch 只在「请求根本没发出去」时 reject（断网、DNS 失败、服务挂了），
+ * 这时抛的是英文 TypeError，直接显示给用户就是一句看不懂的话 —— 必须换成能看懂的。
+ */
+export const NET_ERROR_MESSAGE = '连不上服务器，请检查网络后重试'
+
+/** 登录态失效的处理方，由 session 层注册。页面不用各自判断 401 */
+let unauthorizedHandler: (() => void) | null = null
+
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  unauthorizedHandler = fn
+}
+
+interface RequestOptions {
+  /**
+   * 这两个接口的 401 是「正常的业务结果」，不是登录态失效：
+   *  - /api/me 未登录返回 null，本来就是用来探活的
+   *  - /api/login 密码错也是 401，那是「密码不对」，不该把用户踢回登录页
+   * 若不跳过，会触发 handler → 再探活 → 又 401 的死循环。
+   */
+  skipAuthHook?: boolean
+}
+
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  opts: RequestOptions = {},
+): Promise<T> {
+  let res: Response
+  try {
+    res = await fetch(path, {
+      ...init,
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    })
+  } catch {
+    throw new ApiError(NET_ERROR_MESSAGE, 0)
+  }
+
+  const text = await res.text().catch(() => '')
+  let data: unknown = null
+  if (text) {
+    try {
+      data = JSON.parse(text)
+    } catch {
+      // 反向代理 / 网关挂掉时会回一页 HTML，JSON.parse 会炸成一句看不懂的话
+      data = null
+    }
+  }
+
   if (!res.ok) {
-    throw new ApiError(data?.error ?? `请求失败（${res.status}）`, res.status)
+    if (res.status === 401 && !opts.skipAuthHook) unauthorizedHandler?.()
+    const fallback = res.status >= 500 ? '服务器出错了，稍后再试' : `请求失败（${res.status}）`
+    throw new ApiError((data as { error?: string } | null)?.error ?? fallback, res.status)
   }
   return data as T
 }
@@ -31,7 +76,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 /** 当前登录状态；未登录返回 null */
 export async function fetchMe(): Promise<SessionUser | null> {
   try {
-    return await request<SessionUser>('/api/me')
+    return await request<SessionUser>('/api/me', undefined, { skipAuthHook: true })
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) return null
     throw e
@@ -39,10 +84,14 @@ export async function fetchMe(): Promise<SessionUser | null> {
 }
 
 export async function login(account: string, password: string): Promise<SessionUser> {
-  return request<SessionUser>('/api/login', {
-    method: 'POST',
-    body: JSON.stringify({ account, password }),
-  })
+  return request<SessionUser>(
+    '/api/login',
+    {
+      method: 'POST',
+      body: JSON.stringify({ account, password }),
+    },
+    { skipAuthHook: true },
+  )
 }
 
 export interface Question {

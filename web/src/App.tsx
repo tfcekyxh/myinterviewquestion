@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import ErrorScreen from './components/ErrorScreen'
 import { useSession } from './lib/session'
 import Login from './pages/Login'
 import Home from './pages/Home'
@@ -13,19 +14,9 @@ export default function App() {
 
   if (loading) return <div className="screen-center">加载中…</div>
 
+  // 连不上服务器时不能白屏（P5）：整页给一条看得见的错误 + 「重试」
   if (error) {
-    return (
-      <div className="screen">
-        <div style={{ flex: 1 }} />
-        <div className="inline-error" role="alert">
-          {error}
-        </div>
-        <button type="button" className="btn-primary" style={{ marginTop: 16 }} onClick={() => void refresh()}>
-          重试
-        </button>
-        <div style={{ flex: 1 }} />
-      </div>
-    )
+    return <ErrorScreen message={error} action={{ label: '重试', onClick: () => void refresh() }} />
   }
 
   return (

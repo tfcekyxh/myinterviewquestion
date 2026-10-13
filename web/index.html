@@ -8,7 +8,15 @@
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- 加到主屏幕后的名字。iOS 会优先用它，没有就退到 <title> -->
+    <meta name="apple-mobile-web-app-title" content="面试题" />
     <meta name="theme-color" content="#F5F6F8" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- iOS 只认 PNG，给 SVG 不生效 —— 这个图标是 scripts/gen-icons.mjs 生成的 -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <title>面试题背诵</title>
   </head>
   <body>

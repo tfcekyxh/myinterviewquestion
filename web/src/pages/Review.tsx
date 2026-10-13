@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import ErrorScreen from '../components/ErrorScreen'
 import {
   fetchFullBank,
   fetchProgress,
@@ -287,16 +288,10 @@ export default function Review() {
 
   if (!current) {
     return (
-      <div className="screen">
-        <div style={{ flex: 1 }} />
-        <div className="inline-error" role="alert">
-          {error ?? '这一题读不出来'}
-        </div>
-        <button type="button" className="btn-primary" style={{ marginTop: 16 }} onClick={() => navigate('/review')}>
-          重新选范围
-        </button>
-        <div style={{ flex: 1 }} />
-      </div>
+      <ErrorScreen
+        message={error ?? '这一题读不出来'}
+        action={{ label: '重新选范围', onClick: () => navigate('/review') }}
+      />
     )
   }
 

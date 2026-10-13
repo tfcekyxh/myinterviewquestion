@@ -5,10 +5,16 @@ import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 
 const isTest = process.env.NODE_ENV === 'test'
+// DB_PATH 让冒烟脚本能自己开一个一次性的库，跑完就删。
+// 没有它的话，scripts/smoke-*.mjs 只能打在 data/app.db 或 data/test.db 上，
+// 会把里面原有的复习记录一起算进「记录数」断言 —— 这两条断言只有在全新库上才成立，
+// 反复跑就必然失败（第一次跑明明是通过的）。这是脚本的坑，不是产品的 bug。
 const dataDir = path.resolve('data')
-const dbPath = isTest ? path.join(dataDir, 'test.db') : path.join(dataDir, 'app.db')
-
-fs.mkdirSync(dataDir, { recursive: true })
+const dbPath = process.env.DB_PATH
+  ? path.resolve(process.env.DB_PATH)
+  : path.join(dataDir, isTest ? 'test.db' : 'app.db')
+// 用 DB_PATH 时只建临时文件自己所在的目录，不顺手造一个空的 data/
+fs.mkdirSync(path.dirname(dbPath), { recursive: true })
 
 export const db = new DatabaseSync(dbPath)
 

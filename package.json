@@ -14,6 +14,7 @@
     "dev:server": "node server/index.js",
     "dev:https": "HTTPS=1 node server/index.js",
     "cert:gen": "node scripts/gen-cert.mjs",
+    "icon:gen": "node scripts/gen-icons.mjs",
     "build": "npm -w web run build",
     "start": "node server/index.js",
     "test": "npm -w web run test",

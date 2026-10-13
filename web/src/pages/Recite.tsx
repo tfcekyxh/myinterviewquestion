@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type TouchEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import ErrorScreen from '../components/ErrorScreen'
 import {
   fetchFullBank,
   fetchProgress,
@@ -152,16 +153,10 @@ export default function Recite() {
 
   if (error || !prog || !current) {
     return (
-      <div className="screen">
-        <div style={{ flex: 1 }} />
-        <div className="inline-error" role="alert">
-          {error ?? '这一题读不出来'}
-        </div>
-        <button type="button" className="btn-primary" style={{ marginTop: 16 }} onClick={() => navigate('/')}>
-          回到首页
-        </button>
-        <div style={{ flex: 1 }} />
-      </div>
+      <ErrorScreen
+        message={error ?? '这一题读不出来'}
+        action={{ label: '回到首页', onClick: () => navigate('/') }}
+      />
     )
   }
 

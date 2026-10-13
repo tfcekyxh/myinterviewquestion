@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import ErrorScreen from '../components/ErrorScreen'
 import { fetchBank, fetchProgress, logout, type BankInfo, type ProgressState } from '../lib/api'
 import type { SessionUser } from '../lib/api'
 import { currentSeq, doneCount, isFinished } from '../lib/recite'
@@ -47,18 +48,7 @@ export default function Home({ user, onLogout }: Props) {
   if (loading) return <div className="screen-center">加载中…</div>
 
   if (error) {
-    return (
-      <div className="screen">
-        <div style={{ flex: 1 }} />
-        <div className="inline-error" role="alert">
-          {error}
-        </div>
-        <button type="button" className="btn-primary" style={{ marginTop: 16 }} onClick={() => void load()}>
-          重试
-        </button>
-        <div style={{ flex: 1 }} />
-      </div>
-    )
+    return <ErrorScreen message={error} action={{ label: '重试', onClick: () => void load() }} />
   }
 
   const total = bank?.total ?? 0

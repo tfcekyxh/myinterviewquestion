@@ -5,10 +5,18 @@
 
 **用户设备：只用 iPhone。** 所有兼容性决策以此为前提。
 
+## P0–P5 已全部完成（2026-10-13）
+- **P4 真机 5 项清单已验完**：iPhone Safari 上授权弹窗正常、能录、能回放、底部按钮不被 Home 条遮挡、加到主屏幕正常。
+  → **录音路线（MediaRecorder + 自签 HTTPS 本地调试）在真机上成立**，不用再怀疑。
+- **P5 上线收尾已完成**：网络失败提示、401 处理、manifest + 图标。
+- 唯一仍未知的是「重新发布后 SQLite 文件是否持久」—— 只能上线验证，兜底（导出/导入 JSON）已在 P2.5 做完。
+
 ## P0–P4 已落地（2026-10-11，代码在仓库里）
 
 - **P0 PDF 解析：准确率 100%**（200/200，无需 OCR）。规则：**题干行字号 9.65 vs 正文 8.25**，靠字号台阶切题——不能按编号/按页/按空行切。详见 `pdf-parse-report.md` 与 `web/src/lib/pdf/parse.ts`。
 - **P1 骨架+登录**：Express 5 + `node:sqlite` + `scrypt` + 自写 SqliteStore；单账号 `admin`，密码在 `.env`（不进 git）。
+  ⚠️ **改密码不能只改 `.env`**：`ensureUser()` 只在用户不存在时写库，用户已存在就直接 return，改 `.env` 不生效。
+  而**删 `data/app.db` 会连题库和进度一起丢掉**（P1 时给的那条建议是错的）。正确做法是直接改 `users` 表的 `pwd_hash`/`pwd_salt`（用 `hashPassword()` 生成）。
 - **P2 导入闭环**：浏览器端 pdfjs → `parse.ts` 切题 → 预览 → 整批入库（事务）。
 - **P2.5 导出/导入题库 JSON**：`/bank`，`data/app.db` 丢失时的兜底。
 - **P3 背诵模式**：`/recite`（题答同屏 + 顺序/随机 + 进度存服务端）；首页进度卡；`/bank` 可重置进度。
@@ -91,9 +99,9 @@
 
 ## 测试策略（2026-10-10 定，详见 `tech-stack.md` 第十一节，已实测跑通）
 **用户定：RTL 做 component test，Playwright 做 e2e。** 三层验证：
-- **L1 组件** Vitest + RTL + jsdom（React 19）→ 当前 **90 条全绿**
-- **L2 e2e** Playwright（Chromium + `--use-fake-device-for-media-stream` 假麦克风）→ 当前 **17 条全绿**，含 iPhone 13 视口 390×844
-- **L3 真机** iPhone Safari 手动清单 5 项 —— **不可省**，macOS WebKit ≠ iOS Safari。**P4 的录音真机清单还没做。**
+- **L1 组件** Vitest + RTL + jsdom（React 19）→ 当前 **96 条全绿**
+- **L2 e2e** Playwright（Chromium + `--use-fake-device-for-media-stream` 假麦克风）→ 当前 **20 条全绿**，含 iPhone 13 视口 390×844
+- **L3 真机** iPhone Safari 手动清单 5 项 —— **2026-10-13 已验完，全过**（模拟器不算，但真机这次真跑了）
 - 另有接口级冒烟：`scripts/smoke-auth.mjs`（11 项）、`scripts/smoke-progress.mjs`（39 项，含复习记录与轮次结算）
 
 **`vite build` 不做类型检查（esbuild 只剥类型）。`npm run build` 已改成先跑 `tsc --noEmit`** —— 补上后立刻暴露了 4 处真 bug，其中 `Import.tsx` 的 `stage` 判断漏 `'saving'` 会导致「入库中…」永远看不到。
@@ -135,24 +143,38 @@
 - `certs/` 已 gitignore；**换 Wi-Fi 后 IP 变了要重新生成证书**（旧 IP 在 SAN 里写死了）
 - 另一条路是发布到公网 HTTPS（`workbuddy_sites_deploy`），用户倾向数据不出本机，所以选的自签证书
 
+## P5 的三条硬结论（2026-10-13，改这块前先看）
+1. **网络失败必须在 `fetch` 那一层兜住。** fetch 只在「请求根本没发出去」时 reject，抛英文 `TypeError`；
+   反向代理挂了还会回**一页 HTML**，`JSON.parse` 炸成 `Unexpected token '<'`。统一换成 `NET_ERROR_MESSAGE`。
+2. **401 有两种语义，混了会死循环**：`/api/me` 的 401 = 未登录（探活，返回 null）；
+   `/api/login` 的 401 = 密码不对（正常业务结果）；**只有其他接口的 401 才是登录态过期**
+   → 走 `setUnauthorizedHandler` 踢回登录页。不区分的话，登录页收到 401 → 触发 handler → 再探活 → 又 401。
+3. **图标只能自己写 PNG 编码器**（`scripts/gen-icons.mjs`，zlib + CRC32，零依赖，4 倍超采样降噪）。
+   环境没有图像库（sharp/canvas 都要原生编译），而 **iOS 的 `apple-touch-icon` 只认 PNG，SVG 不生效**。
+   `npm run icon:gen` 重新生成 → `web/public/icon-{180,192,512}.png`。
+4. **冒烟脚本必须打在全新库上**：`server/db.js` 支持 `DB_PATH`，`smoke-*.mjs` 用它开一次性库。
+   直接打 `data/app.db` 时「复习记录初始为 0」这类断言跑第二遍必然失败（第一次明明是过的）。
+
 ## 关键源码地图
 | 位置 | 职责 |
 |---|---|
-| `server/db.js` | `node:sqlite` 建表 + `progress` 单行 JSON 读写 + 老结构迁移 |
+| `server/db.js` | `node:sqlite` 建表 + `progress` 单行 JSON 读写 + 老结构迁移；支持 `DB_PATH` 指定库文件 |
 | `server/routes/auth.js` / `questions.js` / `progress.js` / `reviews.js` | 登录、题库（整批替换）、进度、复习记录 |
 | `web/src/lib/pdf/parse.ts` | **切题纯函数**（Node 与浏览器共用），13 条单测 |
 | `web/src/lib/pdf/extract.ts` | 浏览器端 pdfjs 抽文本项（动态 import，只有导入页加载） |
 | `web/src/lib/recite.ts` | 洗牌与进度换算纯逻辑 |
 | `web/src/lib/recorder.ts` | **录音抽象层**（jsdom 没 MediaRecorder，组件测试必须换桩）+ 扩展名推导 |
 | `web/src/lib/audioStore.ts` | 录音存本机 IndexedDB（fail-soft，音频不上云） |
-| `web/src/lib/api.ts` | 前端访问后端的唯一入口（含 `ProgressState` / `ReviewRound`） |
+| `web/src/lib/api.ts` | 前端访问后端的唯一入口（含 `ProgressState` / `ReviewRound`）；网络失败与 401 都在这里兜 |
+| `web/src/components/ErrorScreen.tsx` | **整页失败态**：任何接口失败都用它（role=alert + 一个退路按钮），不允许白屏 |
 | `web/src/pages/` | `Login` / `Home` / `Import` / `Bank` / `Recite` / `ReviewScope` / `Review` |
 | `web/src/styles.css` | 原生 CSS Variables 映射 `ued.md` 设计令牌 |
 | `web/src/test-setup.ts` | 给 jsdom 补 `createObjectURL` 与音频 `play/pause` |
 
-## 当前卡点
-代码层面 P0–P4 都完成了。**剩下两件必须真机/必须上线才能做的**：
-① **P4 的 iPhone Safari 真机 5 项清单**（授权弹窗、能录音、能回放、底部按钮不被 Home 条遮挡）——模拟器不算；
-② P5 的上线收尾（`manifest.webmanifest` + 添加到主屏幕、网络失败提示、导出兜底已提前做完）。
+## 当前状态
+**P0–P5 全部完成，真机已验。** 没有卡点了。
 
-**下一步默认做 P5。**
+如果要继续，可选的下一步（都没被要求）：
+① 上线（发布到公网 HTTPS）—— 顺带验证「重新发布后 SQLite 是否还在」这个最后的风险点
+② 语音转文字（`webkitSpeechRecognition`，方案已查清，见下）
+③ 错题清单 / 按章节选范围（需求里明确不做的两项，要做得先改 `project-scope.md`）
