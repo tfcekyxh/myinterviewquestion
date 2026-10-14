@@ -5,6 +5,19 @@
 
 **用户设备：只用 iPhone。** 所有兼容性决策以此为前提。
 
+## 已上线（2026-10-14）
+- **分享链接**：https://interview-flashcards-29811.app.workbuddy.host/
+- 部署参数：`language: node`、`port: 3000`、
+  `startCmd: "npm run build && APP_ACCOUNT=... APP_PASSWORD=... SESSION_SECRET=... node server/index.js"`
+  - `dist/` 在 .gitignore、不会被上传 → **build 必须写进 startCmd**
+  - `.env` 不进 git → **环境变量必须靠 startCmd 注入**，否则 `ensureUser()` 报错 exit 1
+- 管理入口：设置 → 数据管理 → 应用（可重新发布 / 取消发布）
+- ⚠️ **`data/` 会被一起上传**（工具只排除 node_modules/.git/构建产物）→
+  **每次重新发布会用本地 `data/app.db` 覆盖线上数据**。
+  副作用：注入的新密码不生效（users 表已有 admin，ensureUser 直接 return），
+  新密码登录会 401。改密码要走 `scripts/set-password.mjs`。
+- 线上与本地密码目前统一为 `liujiantao`。
+
 ## 整库导出 / 还原（2026-10-13 新增，动这块前必看）
 - **和「导出题库 JSON」是两回事**：JSON 只带题目，整库 `.db` 文件连**进度、复习记录、账号**一起带走。
   服务端数据真丢了，只有靠它完整复原。入口在 `/bank` 页下半部分「数据库备份」。
@@ -28,7 +41,10 @@
 - **P0 PDF 解析：准确率 100%**（200/200，无需 OCR）。规则：**题干行字号 9.65 vs 正文 8.25**，靠字号台阶切题——不能按编号/按页/按空行切。详见 `pdf-parse-report.md` 与 `web/src/lib/pdf/parse.ts`。
 - **P1 骨架+登录**：Express 5 + `node:sqlite` + `scrypt` + 自写 SqliteStore；单账号 `admin`，密码在 `.env`（不进 git）。
   ⚠️ **改密码不能只改 `.env`**：`ensureUser()` 只在用户不存在时写库，用户已存在就直接 return，改 `.env` 不生效。
-  而**删 `data/app.db` 会连题库和进度一起丢掉**（P1 时给的那条建议是错的）。正确做法是直接改 `users` 表的 `pwd_hash`/`pwd_salt`（用 `hashPassword()` 生成）。
+  而**删 `data/app.db` 会连题库和进度一起丢掉**（P1 时给的那条建议是错的）。
+  正确做法：用 `scripts/set-password.mjs <db文件> <账号> <新密码>` 直接改 `users` 表的
+  `pwd_hash`/`pwd_salt`（scrypt，salt 16 字节、密钥 64 字节，与 `server/auth.js` 一致）。
+  线上改法：GET /api/backup 下载 → 本地改 → POST /api/restore 传回去。
 - **P2 导入闭环**：浏览器端 pdfjs → `parse.ts` 切题 → 预览 → 整批入库（事务）。
 - **P2.5 导出/导入题库 JSON**：`/bank`，`data/app.db` 丢失时的兜底。
 - **P3 背诵模式**：`/recite`（题答同屏 + 顺序/随机 + 进度存服务端）；首页进度卡；`/bank` 可重置进度。
@@ -185,9 +201,12 @@
 | `web/src/test-setup.ts` | 给 jsdom 补 `createObjectURL` 与音频 `play/pause` |
 
 ## 当前状态
-**P0–P5 全部完成，真机已验。** 没有卡点了。
+**P0–P5 全部完成，真机已验，已发布上线**（分享链接见上）。
 
-如果要继续，可选的下一步（都没被要求）：
-① 上线（发布到公网 HTTPS）—— 顺带验证「重新发布后 SQLite 是否还在」这个最后的风险点
+剩下的可选项：
+① **下次重新发布时顺手验掉最后一个风险点**：线上现在有真实数据（200 题 + 进度 + 7 条复习记录），
+   重发一次看还在不在。不在的话就是磁盘不持久，只能靠整库导出/导入兜底。
 ② 语音转文字（`webkitSpeechRecognition`，方案已查清，见下）
 ③ 错题清单 / 按章节选范围（需求里明确不做的两项，要做得先改 `project-scope.md`）
+④ 公网密码目前是 `liujiantao`（拼音，偏弱）。想换用 `scripts/set-password.mjs`，
+   记得**本地库也要一起改**，否则下次重发又会被本地库覆盖回去。
