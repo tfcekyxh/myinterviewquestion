@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import Review from './Review'
 import { fetchFullBank, fetchProgress, saveReview, type Question } from '../lib/api'
 import { createRecorder, isRecorderSupported, type RecorderState, type Recording } from '../lib/recorder'
+import { clipFile, saveFile, ShareCancelled } from '../lib/clipExport'
 
 // ── 假录音器 ────────────────────────────────────────────────────
 // jsdom 里没有 MediaRecorder，所以组件测试一律换桩。真录音只在 e2e / 真机上跑。
@@ -50,6 +51,13 @@ vi.mock('../lib/recorder', async (importOriginal) => {
 
 vi.mock('../lib/audioStore', () => ({ saveClip: vi.fn(async () => 'clip-key') }))
 
+// ShareCancelled 必须留真的 —— Review 里用 instanceof 判断「用户取消」，
+// 换成假 class 会让那份眼皮底下的容错失去意义
+vi.mock('../lib/clipExport', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/clipExport')>()
+  return { ...actual, saveFile: vi.fn(), clipFile: vi.fn() }
+})
+
 vi.mock('../lib/api', () => ({
   fetchFullBank: vi.fn(),
   fetchProgress: vi.fn(),
@@ -61,6 +69,8 @@ const mockedProgress = vi.mocked(fetchProgress)
 const mockedSaveReview = vi.mocked(saveReview)
 const mockedCreate = vi.mocked(createRecorder)
 const mockedSupported = vi.mocked(isRecorderSupported)
+const mockedSaveFile = vi.mocked(saveFile)
+const mockedClipFile = vi.mocked(clipFile)
 
 // 答案刻意写成和界面文案完全不同的句子，避免误判
 const QUESTIONS: Question[] = [
@@ -109,6 +119,10 @@ beforeEach(() => {
   mockedBank.mockResolvedValue({ total: 3, source: '题库.pdf', importedAt: 1, questions: QUESTIONS })
   mockedProgress.mockResolvedValue(BASE_PROGRESS)
   mockedSaveReview.mockResolvedValue(undefined)
+  mockedSaveFile.mockReset()
+  mockedSaveFile.mockResolvedValue('shared')
+  mockedClipFile.mockReset()
+  mockedClipFile.mockImplementation(() => new File(['x'], 'a.m4a', { type: 'audio/mp4' }))
 })
 
 afterEach(() => {
@@ -310,5 +324,59 @@ describe('Review · 边界', () => {
 
     expect(await screen.findByText(QUESTIONS[1].question)).toBeInTheDocument()
     expect(screen.getByText('第 1 / 2 题')).toBeInTheDocument()
+  })
+})
+
+describe('Review · 保存这段录音', () => {
+  /** 走一遍「按住 → 说完了 → 对照答案」 */
+  async function recordIntoCompare() {
+    await screen.findByText(QUESTIONS[0].question)
+    fireEvent.pointerDown(mic())
+    await screen.findByText('录音中')
+    fireEvent.click(screen.getByRole('button', { name: '说完了' }))
+    await screen.findByText('参考答案')
+  }
+
+  it('待录 / 录音阶段不出现保存入口（对照答案前，页面越干净越好）', async () => {
+    renderPage()
+    await screen.findByText(QUESTIONS[0].question)
+    expect(screen.queryByRole('button', { name: '保存这段录音' })).not.toBeInTheDocument()
+
+    fireEvent.pointerDown(mic())
+    await screen.findByText('录音中')
+    expect(screen.queryByRole('button', { name: '保存这段录音' })).not.toBeInTheDocument()
+  })
+
+  it('对照答案后可以把这段交给系统保存，文件名取当前题号', async () => {
+    renderPage()
+    await recordIntoCompare()
+
+    fireEvent.click(screen.getByRole('button', { name: '保存这段录音' }))
+
+    await waitFor(() => expect(mockedSaveFile).toHaveBeenCalledOnce())
+    expect(mockedClipFile).toHaveBeenCalledWith(1, expect.anything(), expect.any(Number))
+    expect(await screen.findByRole('status')).toHaveTextContent('文件')
+  })
+
+  it('用户在系统面板里取消 → 不作声', async () => {
+    mockedSaveFile.mockRejectedValue(new ShareCancelled())
+    renderPage()
+    await recordIntoCompare()
+
+    fireEvent.click(screen.getByRole('button', { name: '保存这段录音' }))
+
+    await waitFor(() => expect(mockedSaveFile).toHaveBeenCalledOnce())
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('保存失败给提示，但已展开的答案不受影响', async () => {
+    mockedSaveFile.mockRejectedValue(new Error('系统分享不可用'))
+    renderPage()
+    await recordIntoCompare()
+
+    fireEvent.click(screen.getByRole('button', { name: '保存这段录音' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('保存失败')
+    expect(screen.getByText(QUESTIONS[0].answer)).toBeInTheDocument()
   })
 })

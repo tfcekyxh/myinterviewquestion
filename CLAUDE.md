@@ -34,13 +34,27 @@ iPhone Safari ─HTTPS─▶ Express（单端口：托管 dist + /api）─▶ S
    做法是把答案放在 `stage === 'compare'` 的条件里（**根本不进 DOM**），不是用样式藏起来。
 9. **`pointerdown` 上绝不能 `preventDefault()`**。实测：取消默认行为会把后续的兼容鼠标事件一起吃掉，
    `pointerup` 再也不来 —— 症状是「按住录音后松手不结束」。防 iOS 长按选中改用 CSS（`user-select` / `-webkit-touch-callout`）。
-10. **音频只存本机**（IndexedDB，`src/lib/audioStore.ts`），**不上云**；服务端 `reviews` 只记元数据。
+10. **音频只存在本机**（IndexedDB，`src/lib/audioStore.ts`），**服务端不接收一个字节**；服务端 `reviews` 只记元数据。
     `audio_path` 存的是本机录音的键，不是服务端路径。
+    - 「持久化」不靠服务端，靠**用户主动导出**（`src/lib/clipExport.ts` + 页面 `src/pages/Clips.tsx`）：
+      优先调 iPhone 原生分享面板（Web Share Level 2），不支持才降级 `<a download>`。
+      数据流向是**用户自己的设备 / 用户自己的 iCloud**，与「不上云」不冲突。
+    - **为什么不能往 Express 自己的 `data/audio/` 存**：每次重新发布会用本地 `data/` 覆盖线上数据，
+      SQLite 的磁盘持久性都还没验证，音频放那儿更靠不住。
+    - ⚠️ `clipExport.ts` 里**立刻 `revokeObjectURL` 会把还没开始的下载掐断**（iOS 表现为「点了没反应」），
+      必须延后释放。有测试盯着。
+    - 录音的 key 固定为 `clip:${题号}:${时间戳}`，题号一律用 `seqOfClip()` **从 key 反解**，
+      不新加字段 —— 线上已有的一批录音没有 seq 字段，反解才能新老数据走同一条路。
 
 ## 测试约定
 
 - **组件测试**：Vitest + React Testing Library + jsdom。改组件必须同步更新测试。
 - **端到端**：Playwright。改主流程必须同步更新 e2e。
+- ⚠️ **跑 e2e 前必须先 `npm run build`**（干净 checkout / 换机器必踩）：e2e 直接起 Express 托管 `web/dist`，
+  dist 不存在时服务返回 **503「前端尚未构建」**，而 `webServer.url` 探针把非 2xx 一律当「未就绪」，
+  最终报的是毫无指向性的 `Timed out waiting 60000ms from config.webServer`。看到这条报错先去检查 dist。
+- ⚠️ **e2e 需要 `.env`**：`APP_ACCOUNT` / `APP_PASSWORD` 缺失时服务 `process.exit(1)`。
+  本地 `cp .env.example .env` 填一份即可（`.env` 不进 git）。
 - **真机**：iPhone Safari 手动清单（`tech-stack.md` 11.9）。**Playwright 跑不出真 iOS Safari**，模拟器通过不等于能用。
 - Playwright 已知坑：`devices['iPhone 13']` 默认切 WebKit，需在 `...devices` 之前显式写 `browserName: 'chromium'`；`webServer.url` 探测根路径且 404 算未就绪；headless shell 是独立组件、`install chromium` 不一定装上它（本机即缺）→ 配置里加 `channel: 'chromium'` 绕开。
 - **断言"答案没泄露"时，先剔除 `script/style/template` 再取 `textContent`** —— 内联脚本的源码会被算进 `body.textContent`，导致断言永远失败。
@@ -85,9 +99,10 @@ npm run dev          # 前端（Vite，/api 代理到 :3000）
 npm run dev:server   # 后端（HTTP）
 npm run dev:https    # 后端 + 真机调试用的 HTTPS
 npm run cert:gen     # 生成自签证书
+npm run build       # tsc --noEmit + vite build（产物在 web/dist/，被 gitignore）
 npm test             # vitest run（组件测试）
 npm run typecheck    # tsc --noEmit（build 现在也会先跑它）
-npm run test:e2e     # playwright test
+npm run test:e2e     # playwright test（⚠️ 见下方「跑 e2e 前必须先 build」）
 npm run smoke:auth       # 登录接口级冒烟（需先起服务）
 npm run smoke:progress   # 进度/复习接口级冒烟（会覆盖题库与进度，建议跑在 NODE_ENV=test 的服务上）
 ```

@@ -17,6 +17,7 @@ import {
   type Recorder,
 } from '../lib/recorder'
 import { saveClip } from '../lib/audioStore'
+import { ShareCancelled, clipFile, saveFile } from '../lib/clipExport'
 
 const BARS = 24
 /** 按住不足这么久就当成「点一下开始录」，而不是「说完松手」 */
@@ -54,6 +55,9 @@ export default function Review() {
   const [playing, setPlaying] = useState(false)
   const [pos, setPos] = useState(0)
   const [dur, setDur] = useState(0)
+  // 「保存这段」的结果。跟 error 分开：这是操作反馈，不是页面级失败
+  const [saving, setSaving] = useState(false)
+  const [saveNote, setSaveNote] = useState<string | null>(null)
 
   const recorderRef = useRef<Recorder | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -184,6 +188,27 @@ export default function Review() {
     [],
   )
 
+  /**
+   * 把这段录音交给系统保存（调到「文件」App / iCloud，绝大多数人选这里）。
+   *
+   * 和「音频不上云」那条约束不冲突：数据流向是**用户自己的设备**，
+   * 我们的服务端不收一个字节。真正想反复回听的去首页「我的录音」。
+   */
+  async function saveThisClip() {
+    if (!clip) return
+    setSaving(true)
+    setSaveNote(null)
+    try {
+      const outcome = await saveFile(clipFile(seq, clip, Date.now()))
+      setSaveNote(outcome === 'shared' ? '已交给系统，去「文件」App 里找它' : '已下载到本机')
+    } catch (e) {
+      // 用户在系统面板里点取消不算失败
+      if (!(e instanceof ShareCancelled)) setSaveNote('保存失败，可以去「我的录音」里再试')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function startRecording() {
     if (stage !== 'ready') return
     setError(null)
@@ -260,6 +285,7 @@ export default function Review() {
     clearClip()
     setLevels([])
     setElapsed(0)
+    setSaveNote(null)
     setParams(
       (prev) => {
         const p = new URLSearchParams(prev)
@@ -399,6 +425,26 @@ export default function Review() {
             <div className="t-body color-text-2" style={{ whiteSpace: 'pre-wrap', marginTop: 8 }}>
               {current.answer}
             </div>
+
+            {/* 保存只在对照阶段出现：主动回忆之前不该有任何多余操作入口 */}
+            {clip && (
+              <>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{ marginTop: 16 }}
+                  disabled={saving}
+                  onClick={() => void saveThisClip()}
+                >
+                  {saving ? '保存中…' : '保存这段录音'}
+                </button>
+                {saveNote && (
+                  <div className="inline-info" role="status" style={{ marginTop: 8 }}>
+                    {saveNote}
+                  </div>
+                )}
+              </>
+            )}
           </>
         )}
       </div>

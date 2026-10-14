@@ -92,9 +92,25 @@ export default function Home({ user, onLogout }: Props) {
           <button type="button" className="btn-primary" onClick={() => navigate('/recite')}>
             {done === 0 ? '开始背诵' : '继续背诵'}
           </button>
-          <button type="button" className="btn-secondary" style={{ marginTop: 12 }} onClick={() => navigate('/review')}>
-            开始复习
-          </button>
+          {/* 复习与录音是平级的两个次级入口，并排放一行，不额外占垂直空间 */}
+          <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ flex: 1 }}
+              onClick={() => navigate('/review')}
+            >
+              开始复习
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ flex: 1 }}
+              onClick={() => navigate('/clips')}
+            >
+              我的录音
+            </button>
+          </div>
           <div
             className="t-caption color-text-3"
             style={{ marginTop: 16, display: 'flex', justifyContent: 'space-between' }}
