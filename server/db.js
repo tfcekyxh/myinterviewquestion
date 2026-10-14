@@ -88,7 +88,19 @@ function ensureSchema(conn) {
 }
 
 function open() {
-  const conn = new DatabaseSync(dbPath)
+  let conn
+  try {
+    conn = new DatabaseSync(dbPath)
+  } catch (e) {
+    // 部署环境未必保证磁盘可写（这是本项目最后一个没验过的风险点）。
+    // 这里**不静默退到临时目录** —— 那样服务能起来、数据却随时会没，
+    // 用户会以为存住了。宁可起不来，把问题暴露在日志里。
+    throw new Error(
+      `打不开数据库文件 ${dbPath}：${e.message}。\n` +
+        `常见原因：部署环境的数据目录不可写。请确认运行目录下能创建 data/，` +
+        `或用 DB_PATH 指向一个可写的路径。`,
+    )
+  }
   ensureSchema(conn)
   return conn
 }
