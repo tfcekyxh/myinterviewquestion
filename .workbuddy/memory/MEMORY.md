@@ -91,6 +91,12 @@ iPhone Safari → **Express（单端口，托管 Vite dist + `/api`）** → SQL
 - `npm run dev:https` → HTTP(:3000) + HTTPS(:3443)；**HTTPS 只在 `HTTPS=1` 时启动**（否则 e2e 抢 3443）
 - 手机：装 `http://<本机IP>:3000/__dev/cert.cer` → 设置里安装 → **证书信任设置里开启完全信任** → 开 `https://<本机IP>:3443`
 - `certs/` 已 gitignore；**换 Wi-Fi 后 IP 变了要重生成证书**（旧 IP 写死在 SAN）
+- ⚠️ **起完服务别只看 curl 200 就下结论**：3000/3443 常被**主仓的残留服务**占着（本机有两个仓库副本），
+  本 worktree 的服务会 `EADDRINUSE` 启动即崩，而 curl 拿到的 200 全是别人吐的旧代码。
+  验证姿势：`lsof -p $(lsof -nP -iTCP:3000 -sTCP:LISTEN -t) | grep cwd` 确认工作目录，
+  再比对返回的 JS hash 与本地 `web/dist` 是否一致。
+- ⚠️ **Chrome 会缓存 index.html 和 GET /api/* 的响应**（Express 没设 Cache-Control），
+  服务换了页面可能还是旧的 → 让用户 **Cmd+Shift+R** 强制刷新或开无痕窗口。
 
 ## 关键源码地图
 | 位置 | 职责 |
