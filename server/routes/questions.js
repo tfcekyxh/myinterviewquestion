@@ -3,6 +3,7 @@
 import { Router } from 'express'
 import { requireAuth } from './auth.js'
 import { db, getMeta, setMeta } from '../db.js'
+import { clearAudioCache } from '../tts.js'
 
 export const questionsRouter = Router()
 
@@ -55,6 +56,8 @@ questionsRouter.post('/', (req, res) => {
     setMeta('source_pdf', typeof source === 'string' ? source : '')
     setMeta('imported_at', String(Date.now()))
     db.exec('COMMIT')
+    // 题目全换了，旧音频指向的是已经不存在的题，一律作废（下次翻到会重新生成）
+    clearAudioCache()
   } catch (e) {
     db.exec('ROLLBACK')
     console.error('[入库失败]', e)

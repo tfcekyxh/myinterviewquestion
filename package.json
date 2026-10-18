@@ -28,7 +28,8 @@
   },
   "dependencies": {
     "express": "^5.3.0",
-    "express-session": "^1.19.0"
+    "express-session": "^1.19.0",
+    "node-edge-tts": "^1.2.11"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0"

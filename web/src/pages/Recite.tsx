@@ -11,6 +11,22 @@ import {
   type ReciteMode,
 } from '../lib/api'
 import { cursor, doneCount, isFinished, patchForCount, seqsFor, shuffle, withCount } from '../lib/recite'
+import {
+  createSpeaker,
+  isSpeechSupported,
+  primeVoices,
+  segmentsForCard,
+  type Speaker,
+} from '../lib/speech'
+import {
+  ANSWER_WAIT_MS,
+  createAudioPlayer,
+  isWarm,
+  resetServerAudio,
+  segmentUrl,
+  warmSegment,
+  withTimeout,
+} from '../lib/cardAudio'
 
 /**
  * 背诵页（ued.md S4）。
@@ -20,6 +36,25 @@ import { cursor, doneCount, isFinished, patchForCount, seqsFor, shuffle, withCou
  *  2. 顺序 / 随机各存一个位置，来回切都不丢进度
  *  3. 位置语义是「已背题数」，能取到 N（背完），不是数组下标
  */
+
+const AUTO_READ_KEY = 'recite.autoRead'
+const AUTO_NEXT_KEY = 'recite.autoNext'
+
+function loadFlag(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === '1'
+  } catch {
+    return false // Safari 无痕模式下 localStorage 会抛
+  }
+}
+
+function storeFlag(key: string, on: boolean) {
+  try {
+    localStorage.setItem(key, on ? '1' : '0')
+  } catch {
+    // 存不了不影响本次使用
+  }
+}
 export default function Recite() {
   const navigate = useNavigate()
 
@@ -28,6 +63,24 @@ export default function Recite() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+
+  // 不支持朗读的浏览器（含测试环境的 jsdom）直接不显示这个开关
+  const [speechOn] = useState(() => isSpeechSupported())
+  // 音色列表是异步就绪的，进页面就开始预热，免得第一次念的时候还挑不出中文音色
+  useEffect(() => {
+    if (speechOn) primeVoices()
+    // 每次进背诵页都重新试一次服务端音频：上次不通不代表这次也不通
+    resetServerAudio()
+  }, [speechOn])
+  const [autoRead, setAutoRead] = useState(() => loadFlag(AUTO_READ_KEY))
+  // 念完一整张卡就自动翻下一题（连着听，不用一直点）
+  const [autoNext, setAutoNext] = useState(() => loadFlag(AUTO_NEXT_KEY))
+  // iOS 每次刷新都要重新「解锁」一次：记住的开关不能靠 useEffect 自动开播，
+  // 那条路径不在用户手势栈里，会静默失败。只有本次会话里用户真碰过一次屏幕，
+  // 才认这个开关是活的。
+  const [speechArmed, setSpeechArmed] = useState(false)
+  // 这一题实际用的是哪个音源 —— 显示出来，不然「听着还是机械的」无从判断问题出在哪
+  const [audioSource, setAudioSource] = useState<'server' | 'local' | null>(null)
 
   // 写进度是「后写覆盖先写」，必须串行化：连点下一题时若并发发出，
   // 网络的乱序会让位置回退。用一条 Promise 链把它们排好队。
@@ -89,6 +142,157 @@ export default function Recite() {
   const done = prog ? doneCount(prog) : 0
   const finished = prog ? isFinished(prog, total) : false
   const current = (questions ?? []).find((q) => q.seq === seqs[index]) ?? null
+  const currentSeq = current?.seq ?? null
+
+  // 全局只有一个 speechSynthesis，整页共用一个播放器实例（多个实例会互相 cancel）
+  const speakerRef = useRef<Speaker | null>(null)
+  const getSpeaker = useCallback(() => {
+    if (!speakerRef.current) speakerRef.current = createSpeaker()
+    return speakerRef.current
+  }, [])
+  const spokenSeq = useRef<number | null>(null)
+  /** 这一题是不是正在念（连播开关要靠它判断该等，还是该立刻翻页） */
+  const speakingRef = useRef(false)
+  // 连播的「翻下一题」动作必须读最新值：onDone 回调是在开播那一刻就捕获的，
+  // 用户可能播到一半才打开连播 —— 直接读 state 会拿到旧的 false。
+  const autoNextRef = useRef(autoNext)
+  const goNextRef = useRef<() => void>(() => undefined)
+  useEffect(() => {
+    autoNextRef.current = autoNext
+    goNextRef.current = () => {
+      if (!finished) goToCount(done + 1)
+    }
+  })
+
+  // ── 服务端音频：音质比 iOS 内置的好，而且是真音频，锁屏也能接着听 ──
+  const audioRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null)
+  const getAudioPlayer = useCallback(() => {
+    if (!audioRef.current) audioRef.current = createAudioPlayer()
+    return audioRef.current
+  }, [])
+  const stopAll = useCallback(() => {
+    speakingRef.current = false
+    getSpeaker().stop()
+    getAudioPlayer().stop()
+  }, [getSpeaker, getAudioPlayer])
+
+  /** 念当前这张卡：题目 → 停顿 → 答案。同一题只念一次。 */
+  const playCard = useCallback(() => {
+    if (!current || spokenSeq.current === current.seq) return
+    const seq = current.seq
+    spokenSeq.current = seq
+    speakingRef.current = true
+    // 两个引擎互斥：不管走哪条，都先把另一条停掉
+    getSpeaker().stop()
+    getAudioPlayer().stop()
+
+    // 整张卡念完（题目+答案都念完）才翻页，不能题目一念完就跳走
+    const onCardDone = () => {
+      speakingRef.current = false
+      if (autoNextRef.current) goNextRef.current()
+    }
+
+    if (isWarm(seq, 'q')) {
+      // 题目音频已经预取好 —— 立刻播它（此刻还在用户手势的同步栈里，iOS 才允许出声）
+      setAudioSource('server')
+      getAudioPlayer().play(segmentUrl(seq, 'q'), {
+        title: current.question,
+        getAnswerUrl: async () => {
+          if (!isWarm(seq, 'a')) await withTimeout(warmSegment(seq, 'a'), ANSWER_WAIT_MS)
+          return segmentUrl(seq, 'a')
+        },
+        onAnswerUnavailable: () => {
+          // 答案音频终究没来：用本机朗读把答案念完，不能整段没了
+          setAudioSource('local')
+          getSpeaker().play(segmentsForCard('', current.answer), { onDone: onCardDone })
+        },
+        onDone: onCardDone,
+      })
+      return
+    }
+
+    // 题目音频还没到（或服务端生不出来）→ iOS 内置朗读顶上，至少不会没声音。
+    // 同时解锁 audio 元素：这样答案音频稍后到了也能接上去播。
+    setAudioSource('local')
+    getAudioPlayer().unlock()
+    getSpeaker().play(segmentsForCard(current.question, current.answer), { onDone: onCardDone })
+  }, [current, getSpeaker, getAudioPlayer])
+
+  // 进题目就把音频拉好：等用户点了再下载就来不及了 ——
+  // iOS 要求第一次出声必须在点击的同步调用栈里，异步下载完再 play 会静默失败。
+  // 题目一定要先拉：它决定这一题能不能用上服务端音质；答案（约 7 秒）可以慢慢来。
+  useEffect(() => {
+    if (currentSeq === null) return
+    const next = seqs[index + 1]
+    const wanted: Array<[number, 'q' | 'a']> = [
+      [currentSeq, 'q'],
+      [currentSeq, 'a'],
+    ]
+    if (typeof next === 'number') wanted.push([next, 'q'])
+
+    let cancelled = false
+    ;(async () => {
+      await Promise.all(
+        wanted.map(([s, part]) =>
+          isWarm(s, part) ? undefined : warmSegment(s, part).catch(() => undefined),
+        ),
+      )
+      if (cancelled) return
+      // 音频到位了但这一题还没出声（用户还没点开关）→ 不用做什么，点了就会用上
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [currentSeq, index, seqs])
+
+  useEffect(() => {
+    if (!autoRead || !speechArmed || currentSeq === null) {
+      stopAll()
+      return
+    }
+    playCard()
+  }, [autoRead, speechArmed, currentSeq, playCard, stopAll])
+
+  // 开关是记住的、但这一轮还没解锁时，等用户第一次碰屏幕再开播。
+  // 必须在 pointerdown 里同步念出第一句 —— 这一次就是 iOS 要的解锁手势。
+  useEffect(() => {
+    if (!speechOn || !autoRead || speechArmed) return
+    const arm = () => {
+      setSpeechArmed(true)
+      playCard()
+    }
+    window.addEventListener('pointerdown', arm, { once: true, capture: true })
+    return () => window.removeEventListener('pointerdown', arm, { capture: true })
+  }, [speechOn, autoRead, speechArmed, playCard])
+
+  // 离开页面必须停，否则声音会跟着你念到别的页面去
+  useEffect(() => () => stopAll(), [stopAll])
+
+  function toggleAutoRead() {
+    const next = !autoRead
+    setAutoRead(next)
+    storeFlag(AUTO_READ_KEY, next)
+    if (!next) {
+      stopAll()
+      spokenSeq.current = null
+      setAudioSource(null)
+      return
+    }
+    // iOS 只认真实点击那一次的同步调用栈：开开关时必须在这里立刻念，
+    // 交给 useEffect 就脱离手势了，会静默失败。
+    setSpeechArmed(true)
+    playCard()
+  }
+
+  function toggleAutoNext() {
+    const next = !autoNext
+    setAutoNext(next)
+    storeFlag(AUTO_NEXT_KEY, next)
+    if (!next) return
+    // 开了连播，而当前这张已经念完了（用户是听完才开的）→ 直接翻下去，
+    // 不然要等一个永远不会来的「念完」事件。正在念的话就不打断，交给 onDone。
+    if (autoRead && speechArmed && !speakingRef.current && !finished) goToCount(done + 1)
+  }
 
   function goToCount(count: number) {
     if (!prog) return
@@ -192,6 +396,38 @@ export default function Recite() {
       <div className="progress-bar" style={{ marginTop: 12 }}>
         <span style={{ width: `${total ? ((index + 1) / total) * 100 : 0}%` }} />
       </div>
+
+      {speechOn && (
+        <div
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}
+        >
+          <span className="t-micro color-text-3">
+            {!autoRead ? '' : audioSource === 'server' ? '云端音质' : '本机朗读'}
+          </span>
+          <div className="chip-group" role="group" aria-label="朗读设置">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoRead}
+              className={`chip${autoRead ? ' is-active' : ''}`}
+              onClick={toggleAutoRead}
+            >
+              {autoRead ? '✓ 自动阅读' : '自动阅读'}
+            </button>
+            {autoRead && (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={autoNext}
+                className={`chip${autoNext ? ' is-active' : ''}`}
+                onClick={toggleAutoNext}
+              >
+                {autoNext ? '✓ 连播' : '连播'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div className="inline-info" role="status" style={{ marginTop: 12 }}>
