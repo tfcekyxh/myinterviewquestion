@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import Recite from './Recite'
-import { fetchFullBank, fetchProgress, saveProgress, type ProgressState, type Question } from '../lib/api'
+import { fetchFullBank, fetchProgress, saveProgress, fetchKeyPoints, type ProgressState, type Question } from '../lib/api'
 import { PAUSE_BEFORE_ANSWER_MS } from '../lib/speech'
 import { isWarm } from '../lib/cardAudio'
 
@@ -65,11 +65,15 @@ vi.mock('../lib/api', () => ({
   fetchFullBank: vi.fn(),
   fetchProgress: vi.fn(),
   saveProgress: vi.fn(),
+  fetchKeyPoints: vi.fn(),
+  saveKeyPoints: vi.fn(),
+  regenerateKeyPoints: vi.fn(),
 }))
 
 const mockedBank = vi.mocked(fetchFullBank)
 const mockedProgress = vi.mocked(fetchProgress)
 const mockedSave = vi.mocked(saveProgress)
+const mockedFetchKeyPoints = vi.mocked(fetchKeyPoints)
 
 const QUESTIONS: Question[] = [1, 2, 3, 4].map((seq) => ({
   seq,
@@ -96,6 +100,8 @@ beforeEach(() => {
   mockedBank.mockResolvedValue({ total: 4, source: '题库.pdf', importedAt: 1, questions: QUESTIONS })
   mockedProgress.mockResolvedValue(progress())
   mockedSave.mockResolvedValue(progress())
+  // 默认没有重点（首题自动生成在真实环境才发生）。返回空要点，面板不渲染列表
+  mockedFetchKeyPoints.mockResolvedValue({ seq: 0, points: [], source: 'ai', updatedAt: null })
   localStorage.clear()
   installSpeech()
   // 默认让服务端音频不可用：既有用例断言的是 iOS 内置朗读。

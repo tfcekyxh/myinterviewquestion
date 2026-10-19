@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Review from './Review'
-import { fetchFullBank, fetchProgress, saveReview, type Question } from '../lib/api'
+import { fetchFullBank, fetchProgress, saveReview, fetchKeyPoints, saveKeyPoints, regenerateKeyPoints, type Question } from '../lib/api'
 import { createRecorder, isRecorderSupported, type RecorderState, type Recording } from '../lib/recorder'
 import { clipFile, saveFile, ShareCancelled } from '../lib/clipExport'
 
@@ -62,11 +62,17 @@ vi.mock('../lib/api', () => ({
   fetchFullBank: vi.fn(),
   fetchProgress: vi.fn(),
   saveReview: vi.fn(),
+  fetchKeyPoints: vi.fn(),
+  saveKeyPoints: vi.fn(),
+  regenerateKeyPoints: vi.fn(),
 }))
 
 const mockedBank = vi.mocked(fetchFullBank)
 const mockedProgress = vi.mocked(fetchProgress)
 const mockedSaveReview = vi.mocked(saveReview)
+const mockedFetchKeyPoints = vi.mocked(fetchKeyPoints)
+const mockedSaveKeyPoints = vi.mocked(saveKeyPoints)
+const mockedRegenerate = vi.mocked(regenerateKeyPoints)
 const mockedCreate = vi.mocked(createRecorder)
 const mockedSupported = vi.mocked(isRecorderSupported)
 const mockedSaveFile = vi.mocked(saveFile)
@@ -116,9 +122,14 @@ beforeEach(() => {
   mockedBank.mockReset()
   mockedProgress.mockReset()
   mockedSaveReview.mockReset()
+  mockedFetchKeyPoints.mockReset()
+  mockedSaveKeyPoints.mockReset()
+  mockedRegenerate.mockReset()
   mockedBank.mockResolvedValue({ total: 3, source: '题库.pdf', importedAt: 1, questions: QUESTIONS })
   mockedProgress.mockResolvedValue(BASE_PROGRESS)
   mockedSaveReview.mockResolvedValue(undefined)
+  // 默认没有重点（首题自动生成在真实环境才发生），让面板安静不渲染要点
+  mockedFetchKeyPoints.mockResolvedValue(null as never)
   mockedSaveFile.mockReset()
   mockedSaveFile.mockResolvedValue('shared')
   mockedClipFile.mockReset()
@@ -378,5 +389,95 @@ describe('Review · 保存这段录音', () => {
 
     expect(await screen.findByRole('status')).toHaveTextContent('保存失败')
     expect(screen.getByText(QUESTIONS[0].answer)).toBeInTheDocument()
+  })
+})
+
+describe('Review · 对照答案时的回答重点', () => {
+  it('对照前不出现；进了对照答案才把 AI 要点亮出来', async () => {
+    mockedFetchKeyPoints.mockResolvedValue({
+      seq: 1,
+      points: ['先说定义', '再给例子', '最后对比'],
+      source: 'ai',
+      updatedAt: 1,
+    })
+    renderPage()
+    await screen.findByText(QUESTIONS[0].question)
+
+    // 录之前（ready 阶段）不该有任何「回答重点」入口
+    expect(screen.queryByText('回答重点')).not.toBeInTheDocument()
+
+    fireEvent.pointerDown(mic())
+    await screen.findByText('录音中')
+    fireEvent.click(screen.getByRole('button', { name: '说完了' }))
+    await screen.findByText('参考答案')
+
+    // 对照答案才出现（等要点真正加载出来，防抖 600ms）
+    expect(await screen.findByText('先说定义', undefined, { timeout: 3000 })).toBeInTheDocument()
+    expect(screen.getByText('回答重点')).toBeInTheDocument()
+    expect(screen.getByText('AI 生成')).toBeInTheDocument()
+    expect(screen.getByText('再给例子')).toBeInTheDocument()
+    expect(screen.getByText('最后对比')).toBeInTheDocument()
+    expect(screen.getByText('再给例子')).toBeInTheDocument()
+    expect(screen.getByText('最后对比')).toBeInTheDocument()
+  })
+
+  it('可以编辑重点：改成自己的话后保存，调用 saveKeyPoints 并标记「我改过」', async () => {
+    mockedFetchKeyPoints.mockResolvedValue({
+      seq: 1,
+      points: ['先说定义', '再给例子'],
+      source: 'ai',
+      updatedAt: 1,
+    })
+    mockedSaveKeyPoints.mockResolvedValue({
+      seq: 1,
+      points: ['先说定义', '加上边界情况'],
+      source: 'user',
+      updatedAt: 2,
+    })
+    renderPage()
+    await screen.findByText(QUESTIONS[0].question)
+    fireEvent.pointerDown(mic())
+    await screen.findByText('录音中')
+    fireEvent.click(screen.getByRole('button', { name: '说完了' }))
+    await screen.findByText('参考答案')
+    await screen.findByText('先说定义', undefined, { timeout: 3000 })
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑' }))
+    const ta = await screen.findByRole('textbox')
+    fireEvent.change(ta, { target: { value: '先说定义\n加上边界情况' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() =>
+      expect(mockedSaveKeyPoints).toHaveBeenCalledWith(1, ['先说定义', '加上边界情况']),
+    )
+    expect(await screen.findByText('我改过')).toBeInTheDocument()
+    expect(screen.getByText('加上边界情况')).toBeInTheDocument()
+  })
+
+  it('可以「重新生成」让 AI 重来', async () => {
+    mockedFetchKeyPoints.mockResolvedValue({
+      seq: 1,
+      points: ['旧的要点一', '旧的要点二'],
+      source: 'ai',
+      updatedAt: 1,
+    })
+    mockedRegenerate.mockResolvedValue({
+      seq: 1,
+      points: ['新的要点一', '新的要点二', '新的要点三'],
+      source: 'ai',
+      updatedAt: 2,
+    })
+    renderPage()
+    await screen.findByText(QUESTIONS[0].question)
+    fireEvent.pointerDown(mic())
+    await screen.findByText('录音中')
+    fireEvent.click(screen.getByRole('button', { name: '说完了' }))
+    await screen.findByText('参考答案')
+    await screen.findByText('旧的要点一', undefined, { timeout: 3000 })
+
+    fireEvent.click(screen.getByRole('button', { name: '重新生成' }))
+    await waitFor(() => expect(mockedRegenerate).toHaveBeenCalledWith(1))
+    expect(await screen.findByText('新的要点一')).toBeInTheDocument()
+    expect(screen.queryByText('旧的要点一')).not.toBeInTheDocument()
   })
 })

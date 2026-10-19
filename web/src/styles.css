@@ -550,3 +550,87 @@ body {
   border-radius: 50%;
   background: var(--primary);
 }
+
+/* ── 回答重点（S4 背诵页）────────────────────────────────────────── */
+.keypoints {
+  /* 与上方答案卡片拉开间距（同项目卡片间距惯例 12px），否则两张卡贴死 */
+  margin-top: 12px;
+  padding: 16px 20px;
+}
+
+.keypoints-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.keypoints-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.keypoints-list li {
+  position: relative;
+  padding: 4px 0 4px 16px;
+}
+
+.keypoints-list li::before {
+  content: '·';
+  position: absolute;
+  left: 2px;
+  top: 4px;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.keypoints-edit {
+  width: 100%;
+  min-height: 96px;
+  padding: 12px;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--text-1);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  outline: none;
+  resize: vertical;
+}
+
+.keypoints-edit:focus {
+  border-color: var(--primary);
+}
+
+.tag {
+  font-size: 11px;
+  line-height: 16px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.tag-ai {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.tag-user {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.link-btn {
+  height: 32px;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.link-btn:disabled {
+  color: var(--text-3);
+}

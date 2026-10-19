@@ -60,6 +60,13 @@ function ensureSchema(conn) {
     created_at  INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS keypoints (
+    seq        INTEGER PRIMARY KEY,
+    points     TEXT NOT NULL,
+    source     TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT

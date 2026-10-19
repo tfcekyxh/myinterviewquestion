@@ -18,6 +18,7 @@
     "build": "npm -w web run build",
     "start": "node server/index.js",
     "test": "npm -w web run test",
+    "test:server": "node --test server/",
     "typecheck": "npm -w web run typecheck",
     "test:e2e": "playwright test",
     "start:test": "NODE_ENV=test node server/index.js",

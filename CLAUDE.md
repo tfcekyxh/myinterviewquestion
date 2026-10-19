@@ -68,7 +68,8 @@ iPhone Safari ─HTTPS─▶ Express（单端口：托管 dist + /api）─▶ S
 
 - 时间统一存 **epoch 毫秒整数**，不存字符串日期。
 - 单用户，不需要 `owner_id`（唯一账号天然隔离）。
-- 表：`users` / `questions` / `progress` / `reviews` / `meta` / `sessions`。
+- 表：`users` / `questions` / `progress` / `reviews` / `keypoints` / `meta` / `sessions`。
+- `keypoints(seq, points JSON, source['ai'|'user'], updated_at)`：每题的「回答重点」。首题在背诵页打开时由服务端调模型生成并缓存（`/api/keypoints/:seq`），用户可在背诵页改成自己的话（source 变 `user`，`PUT`）。换题库时会随 `questions` 一起清掉。
 - `progress` 是**单行 JSON**（`id=1` 恒成立）。位置语义是「**已背题数**」，取值 `0..N`，
   取到 `N` 表示这一轮背完了；顺序与随机各存一个位置（`posOrder` / `posRandom`）。
   另有 `roundStart`（这一轮的起点）与 `lastRound`（刚背完的一轮的题号，供复习选范围）。

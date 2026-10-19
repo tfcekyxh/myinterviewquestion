@@ -47,6 +47,8 @@ questionsRouter.post('/', (req, res) => {
     // 复习记录同理：它记的是 question_id，题一换就成了指向空气的脏数据，
     // 「复习过几题」也会一直显示错的数字
     db.prepare('DELETE FROM reviews').run()
+    // 重点与具体某题的答案强绑定，题库一换就是旧的，必须一起清
+    db.prepare('DELETE FROM keypoints').run()
     const insert = db.prepare(
       'INSERT INTO questions (seq, question, answer, source_pdf) VALUES (?, ?, ?, ?)',
     )

@@ -100,6 +100,14 @@ export interface Question {
   answer: string
 }
 
+/** 单题的「回答重点」。source='ai' 为模型生成，'user' 为用户改过/自建。 */
+export interface KeyPoints {
+  seq: number
+  points: string[]
+  source: 'ai' | 'user'
+  updatedAt: number | null
+}
+
 export interface BankInfo {
   total: number
   source: string | null
@@ -206,6 +214,24 @@ export async function saveProgress(patch: ProgressPatch): Promise<ProgressState>
 
 export async function resetProgress(): Promise<void> {
   await request<{ ok: true }>('/api/progress', { method: 'DELETE' })
+}
+
+/** 取某题的回答重点。首次访问会在服务端调模型生成并缓存，之后直接读库（可离线）。 */
+export async function fetchKeyPoints(seq: number, signal?: AbortSignal): Promise<KeyPoints> {
+  return request<KeyPoints>(`/api/keypoints/${seq}`, signal ? { signal } : undefined)
+}
+
+/** 保存用户自己改过的重点。 */
+export async function saveKeyPoints(seq: number, points: string[]): Promise<KeyPoints> {
+  return request<KeyPoints>(`/api/keypoints/${seq}`, {
+    method: 'PUT',
+    body: JSON.stringify({ points }),
+  })
+}
+
+/** 强制让 AI 重新生成一遍重点。 */
+export async function regenerateKeyPoints(seq: number): Promise<KeyPoints> {
+  return request<KeyPoints>(`/api/keypoints/${seq}/regenerate`, { method: 'POST' })
 }
 
 /** 记一条复习记录。音频不上云，只记「哪一题、讲了多久、本机录音的键」 */

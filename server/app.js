@@ -13,6 +13,7 @@ import { progressRouter } from './routes/progress.js'
 import { reviewsRouter } from './routes/reviews.js'
 import { backupRouter } from './routes/backup.js'
 import { ttsRouter } from './routes/tts.js'
+import { keypointsRouter } from './routes/keypoints.js'
 import { SqliteStore, pruneSessions } from './sessionStore.js'
 
 const DIST = path.resolve('web/dist')
@@ -50,6 +51,7 @@ export function createApp() {
   // 不能走全局的 express.json —— 否则二进制会被当 JSON 解析坏掉
   app.use('/api/backup', express.raw({ type: '*/*', limit: '200mb' }), backupRouter)
   app.use('/api/tts', ttsRouter)
+  app.use('/api/keypoints', keypointsRouter)
   app.get('/api/health', (_req, res) => res.json({ ok: true }))
 
   // 1.5 仅「HTTPS 调试模式」下挂：把证书吐出来，方便手机下载安装。

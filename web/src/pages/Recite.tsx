@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useRef, useState, type TouchEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ErrorScreen from '../components/ErrorScreen'
+import KeyPointsPanel, { type KeyPointError } from '../components/KeyPointsPanel'
 import {
   fetchFullBank,
   fetchProgress,
   saveProgress,
+  fetchKeyPoints,
+  saveKeyPoints,
+  regenerateKeyPoints,
   type ProgressPatch,
   type ProgressState,
   type Question,
   type ReciteMode,
+  type KeyPoints,
+  type ApiError,
 } from '../lib/api'
 import { cursor, doneCount, isFinished, patchForCount, seqsFor, shuffle, withCount } from '../lib/recite'
 import {
@@ -39,6 +45,9 @@ import {
 
 const AUTO_READ_KEY = 'recite.autoRead'
 const AUTO_NEXT_KEY = 'recite.autoNext'
+// 回答重点生成防抖：快速翻卡时不打接口，停在某一题才生成。
+// 否则每张卡都立刻调一次 LLM，免费档会被突发请求限流（502）。
+const KP_DEBOUNCE_MS = 600
 
 function loadFlag(key: string): boolean {
   try {
@@ -143,6 +152,79 @@ export default function Recite() {
   const finished = prog ? isFinished(prog, total) : false
   const current = (questions ?? []).find((q) => q.seq === seqs[index]) ?? null
   const currentSeq = current?.seq ?? null
+
+  // ── 每题的「回答重点」：按题号懒加载 + 缓存（首题自动生成，之后翻回来直接读库）──
+  const [kp, setKp] = useState<Record<number, { data?: KeyPoints; loading?: boolean; error?: KeyPointError }>>({})
+  const [regen, setRegen] = useState<Record<number, boolean>>({})
+  const requested = useRef<Set<number>>(new Set())
+  const latestSeq = useRef<number | null>(null)
+  const kpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const kpAbortRef = useRef<AbortController | null>(null)
+
+  const loadKeyPoints = useCallback(async (seq: number, signal?: AbortSignal) => {
+    setKp((m) => ({ ...m, [seq]: { ...m[seq], loading: true, error: undefined } }))
+    try {
+      const dto = await fetchKeyPoints(seq, signal)
+      if (latestSeq.current !== seq) return
+      setKp((m) => ({ ...m, [seq]: { data: dto, loading: false } }))
+    } catch (e) {
+      if (latestSeq.current !== seq) return
+      // 切走时主动 abort 的取消不算失败
+      if ((e as Error)?.name === 'AbortError') return
+      const ae = e as ApiError
+      const err: KeyPointError =
+        ae?.status === 503 && ae?.message === 'AI_NOT_CONFIGURED' ? 'not-configured' : 'failed'
+      setKp((m) => ({ ...m, [seq]: { loading: false, error: err } }))
+    }
+  }, [])
+
+  useEffect(() => {
+    if (currentSeq === null) return
+    latestSeq.current = currentSeq
+    // 同一题只自动生成一次；切回来若已缓存就直接读（kp 里已有）
+    if (requested.current.has(currentSeq)) return
+    // 防抖：快速翻卡时不打接口，停在某一题才生成，避免对免费模型突发请求被限流 502
+    kpTimerRef.current = setTimeout(() => {
+      requested.current.add(currentSeq)
+      kpAbortRef.current?.abort()
+      const ctrl = new AbortController()
+      kpAbortRef.current = ctrl
+      void loadKeyPoints(currentSeq, ctrl.signal)
+    }, KP_DEBOUNCE_MS)
+    return () => {
+      if (kpTimerRef.current) clearTimeout(kpTimerRef.current)
+    }
+  }, [currentSeq, loadKeyPoints])
+
+  const handleSaveKeyPoints = useCallback(async (seq: number, points: string[]) => {
+    try {
+      const dto = await saveKeyPoints(seq, points)
+      setKp((m) => ({ ...m, [seq]: { data: dto, loading: false } }))
+      setToast('已保存你的重点')
+    } catch {
+      setToast('保存失败，请重试')
+    }
+  }, [])
+
+  const handleRegenerate = useCallback(async (seq: number) => {
+    setRegen((m) => ({ ...m, [seq]: true }))
+    try {
+      const dto = await regenerateKeyPoints(seq)
+      if (latestSeq.current === seq) setKp((m) => ({ ...m, [seq]: { data: dto, loading: false } }))
+    } catch (e) {
+      const ae = e as ApiError
+      // 原本就没有重点（首题生成失败）→ 标成失败态给重试入口；已有旧内容 → 只提示，不覆盖
+      if (!kp[seq]?.data) {
+        const err: KeyPointError =
+          ae?.status === 503 && ae?.message === 'AI_NOT_CONFIGURED' ? 'not-configured' : 'failed'
+        setKp((m) => ({ ...m, [seq]: { loading: false, error: err } }))
+      } else {
+        setToast('重新生成失败，仍显示上次内容')
+      }
+    } finally {
+      setRegen((m) => ({ ...m, [seq]: false }))
+    }
+  }, [kp])
 
   // 全局只有一个 speechSynthesis，整页共用一个播放器实例（多个实例会互相 cancel）
   const speakerRef = useRef<Speaker | null>(null)
@@ -443,6 +525,18 @@ export default function Recite() {
             {current.answer}
           </div>
         </div>
+
+        <KeyPointsPanel
+          key={currentSeq ?? -1}
+          seq={currentSeq ?? 0}
+          data={currentSeq != null ? (kp[currentSeq]?.data ?? null) : null}
+          loading={currentSeq != null ? (kp[currentSeq]?.loading ?? false) : false}
+          error={currentSeq != null ? (kp[currentSeq]?.error ?? null) : null}
+          regenerating={currentSeq != null ? (regen[currentSeq] ?? false) : false}
+          onSave={(pts) => currentSeq != null && handleSaveKeyPoints(currentSeq, pts)}
+          onRegenerate={() => currentSeq != null && handleRegenerate(currentSeq)}
+          onRetry={() => currentSeq != null && loadKeyPoints(currentSeq)}
+        />
       </div>
 
       {finished && (

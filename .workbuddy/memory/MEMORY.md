@@ -126,3 +126,15 @@ git 主分支 `main`；忽略 `node_modules/`、`dist/`、`.env*`、`certs/`、`
 - 语音转文字（暂缓）：iOS Safari `webkitSpeechRecognition`，必须 Safari + HTTPS + 联网，**只能实时听麦不能转写文件**。
 - 明确不做：错题清单 / 按章节选范围（要做先改 `project-scope.md`）。
 - 2026-10-17：用户在提**背诵页 TTS 自动朗读题目与答案**的需求（待定方案）。
+- 2026-10-19：**背诵页「AI 回答重点」上线**（GLM-4.7-Flash，OpenAI 兼容）。详见 `server/llm.js` + `server/routes/keypoints.js` + `web/src/components/KeyPointsPanel.tsx`。
+  - **已上线并配好 key**（2026-10-19）：startCmd 内联 `LLM_API_KEY=...`（用户给的智谱 key，形如 `xxxx.yyyy`）。不配则静默不显示重点、不报错。默认 `LLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4`、`LLM_MODEL=glm-4.7-flash`。
+  - 免费档**单并发 1 请求** → `server/llm.js` 用 `serialize()` 把所有模型调用排队；同一题并发用 `inflight` Map 去重，只生成一次。
+  - ⚠️ **智谱 GLM-4.7-Flash 免费档严重限流（根因级）**：两种 429 交替出现——`1302「账户已达到速率限制」`+ `1305「模型访问量过大」`，按分钟限流。
+    - **症状**：快速翻卡时每题都立刻打一次 `/api/keypoints/:seq`，突发流量把免费额度瞬间打爆 → 整批 502 刷控制台。
+    - **已修（2026-10-19）**：① 前端 keypoints 自动生成加 **600ms 防抖**（`Recite.tsx`/`Review.tsx`：停在某题才生成、翻走 `AbortController` abort、同一题只自动生成一次）；② `server/llm.js` 对 **429/5xx/超时/网络** 自动重试（`MAX_ATTEMPTS=3`、`BACKOFF_MS=2500` 退避，熬过按分钟窗口），只有 400/401/403 不重试。
+    - **仍存的模型侧限制**：高峰时单题孤立生成也可能偶发 502（非代码 bug）。前端 fail-soft 显示「生成失败 + 重试」；生成成功后落库，之后翻回直接读缓存不再调接口。
+    - **根治选项（待用户选）**：(a) 换付费智谱模型（如 glm-4-plus，改 `LLM_MODEL`+可能 `LLM_BASE_URL`，一行配置）；(b) 写「整库预生成」脚本，按节奏（长退避）把 200 题重点一次性缓存，背诵时 100% 离线不调接口。
+  - 线上验证过：登录 200、题数仍 200（数据未丢）、`/api/keypoints/1` 真实返回要点、二次 GET 命中缓存。
+  - 重点落库 `keypoints(seq, points JSON, source['ai'|'user'], updated_at)`；换题库时随 `questions` 一起清。
+  - `parsePoints()` 必须能吞掉中文中点 `·`(U+00B7) / `•`(U+2022) / 编号前缀，否则模型输出的 `· ` 会原样进列表。
+  - **复习页对照答案时（stage==='compare'）也亮出同一份重点**，可编辑/重新生成，复用 `KeyPointsPanel` + 相同的加载/保存逻辑。⚠️ 必须等 `stage==='compare'` 才加载+渲染 —— 重点从答案提炼，对照前出现等于提前泄底，违背复习页「答案进 compare 才进 DOM」的红线（`web/src/pages/Review.tsx`）。

@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import ErrorScreen from '../components/ErrorScreen'
+import KeyPointsPanel, { type KeyPointError } from '../components/KeyPointsPanel'
 import {
   fetchFullBank,
   fetchProgress,
   saveReview,
+  fetchKeyPoints,
+  saveKeyPoints,
+  regenerateKeyPoints,
   type Question,
   type ReciteMode,
+  type KeyPoints,
+  type ApiError,
 } from '../lib/api'
 import { reviewSeqs, type ReviewScope } from '../lib/recite'
 import {
@@ -24,6 +30,8 @@ const BARS = 24
 const HOLD_MS = 400
 /** ued：超过 3 分钟给一次提示，但不强制停止 */
 const LONG_MS = 3 * 60 * 1000
+// 回答重点生成防抖：进入对照后停一下才生成，避免快速翻题对免费模型突发请求被限流
+const KP_DEBOUNCE_MS = 600
 
 type Stage = 'ready' | 'recording' | 'compare'
 
@@ -133,6 +141,87 @@ export default function Review() {
   const index = Math.max(0, Math.min(Number(params.get('i') ?? 0) || 0, Math.max(0, order.length - 1)))
   const seq = order[index]
   const current = questions.find((q) => q.seq === seq) ?? null
+
+  // 行内提示 2 秒后自动消失（保存重点的反馈）
+  const [toast, setToast] = useState<string | null>(null)
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 2000)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  // ── 每题的「回答重点」：进入对照阶段后按题号懒加载 + 缓存 ──
+  // ⚠️ 必须等 stage === 'compare' 才加载/渲染：重点是从答案提炼的，
+  //    对照前出现等于提前泄底，违背本页「答案进 compare 才进 DOM」的红线。
+  const [kp, setKp] = useState<Record<number, { data?: KeyPoints; loading?: boolean; error?: KeyPointError }>>({})
+  const [regen, setRegen] = useState<Record<number, boolean>>({})
+  const requested = useRef<Set<number>>(new Set())
+  const latestSeq = useRef<number | null>(null)
+  const kpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const kpAbortRef = useRef<AbortController | null>(null)
+
+  const loadKeyPoints = useCallback(async (s: number, signal?: AbortSignal) => {
+    setKp((m) => ({ ...m, [s]: { ...m[s], loading: true, error: undefined } }))
+    try {
+      const dto = await fetchKeyPoints(s, signal)
+      if (latestSeq.current !== s) return
+      setKp((m) => ({ ...m, [s]: { data: dto, loading: false } }))
+    } catch (e) {
+      if (latestSeq.current !== s) return
+      if ((e as Error)?.name === 'AbortError') return
+      const ae = e as ApiError
+      const err: KeyPointError =
+        ae?.status === 503 && ae?.message === 'AI_NOT_CONFIGURED' ? 'not-configured' : 'failed'
+      setKp((m) => ({ ...m, [s]: { loading: false, error: err } }))
+    }
+  }, [])
+
+  useEffect(() => {
+    if (seq == null || stage !== 'compare') return
+    latestSeq.current = seq
+    // 同一题只自动生成一次；翻回来若已缓存就直接读（kp 里已有）
+    if (requested.current.has(seq)) return
+    // 防抖：进入对照后停一下才生成，避免快速翻题对免费模型突发请求被限流 502
+    kpTimerRef.current = setTimeout(() => {
+      requested.current.add(seq)
+      kpAbortRef.current?.abort()
+      const ctrl = new AbortController()
+      kpAbortRef.current = ctrl
+      void loadKeyPoints(seq, ctrl.signal)
+    }, KP_DEBOUNCE_MS)
+    return () => {
+      if (kpTimerRef.current) clearTimeout(kpTimerRef.current)
+    }
+  }, [seq, stage, loadKeyPoints])
+
+  const handleSaveKeyPoints = useCallback(async (s: number, points: string[]) => {
+    try {
+      const dto = await saveKeyPoints(s, points)
+      setKp((m) => ({ ...m, [s]: { data: dto, loading: false } }))
+      setToast('已保存你的重点')
+    } catch {
+      setToast('保存失败，请重试')
+    }
+  }, [])
+
+  const handleRegenerate = useCallback(async (s: number) => {
+    setRegen((m) => ({ ...m, [s]: true }))
+    try {
+      const dto = await regenerateKeyPoints(s)
+      if (latestSeq.current === s) setKp((m) => ({ ...m, [s]: { data: dto, loading: false } }))
+    } catch (e) {
+      const ae = e as ApiError
+      if (!kp[s]?.data) {
+        const err: KeyPointError =
+          ae?.status === 503 && ae?.message === 'AI_NOT_CONFIGURED' ? 'not-configured' : 'failed'
+        setKp((m) => ({ ...m, [s]: { loading: false, error: err } }))
+      } else {
+        setToast('重新生成失败，仍显示上次内容')
+      }
+    } finally {
+      setRegen((m) => ({ ...m, [s]: false }))
+    }
+  }, [kp])
 
   useEffect(() => {
     const a = audioRef.current
@@ -348,6 +437,12 @@ export default function Review() {
         </div>
       )}
 
+      {toast && (
+        <div className="inline-info" role="status" style={{ marginTop: 12 }}>
+          {toast}
+        </div>
+      )}
+
       <div className="scroll-area" style={{ marginTop: 16 }}>
         {/* 题干：三个阶段都可见（边讲边看题） */}
         <div className={stage === 'compare' ? 't-title-2' : 't-title-1'}>{current.question}</div>
@@ -425,6 +520,20 @@ export default function Review() {
             <div className="t-body color-text-2" style={{ whiteSpace: 'pre-wrap', marginTop: 8 }}>
               {current.answer}
             </div>
+
+            {/* 对照答案时把「回答重点」亮出来：AI 提炼的得分点 + 你改过的版本，
+                帮你对着自己的录音评估讲没讲到。只在这里渲染，对照前不进 DOM。 */}
+            <KeyPointsPanel
+              key={seq}
+              seq={seq}
+              data={kp[seq]?.data ?? null}
+              loading={kp[seq]?.loading ?? false}
+              error={kp[seq]?.error ?? null}
+              regenerating={regen[seq] ?? false}
+              onSave={(pts) => handleSaveKeyPoints(seq, pts)}
+              onRegenerate={() => handleRegenerate(seq)}
+              onRetry={() => loadKeyPoints(seq)}
+            />
 
             {/* 保存只在对照阶段出现：主动回忆之前不该有任何多余操作入口 */}
             {clip && (
