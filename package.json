@@ -23,6 +23,10 @@
     "test:e2e": "playwright test",
     "start:test": "NODE_ENV=test node server/index.js",
     "pdf:extract": "node scripts/extract-questions.mjs",
+    "demo:pdf": "node demo/scripts/gen-demo-pdf.mjs",
+    "demo:cards": "node demo/scripts/gen-title-cards.mjs",
+    "demo": "playwright test -c demo/playwright.config.ts",
+    "demo:convert": "node demo/convert.mjs",
     "smoke:auth": "node scripts/smoke-auth.mjs",
     "smoke:progress": "node scripts/smoke-progress.mjs",
     "smoke:backup": "node scripts/smoke-backup.mjs"
