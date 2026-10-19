@@ -138,3 +138,10 @@ git 主分支 `main`；忽略 `node_modules/`、`dist/`、`.env*`、`certs/`、`
   - 重点落库 `keypoints(seq, points JSON, source['ai'|'user'], updated_at)`；换题库时随 `questions` 一起清。
   - `parsePoints()` 必须能吞掉中文中点 `·`(U+00B7) / `•`(U+2022) / 编号前缀，否则模型输出的 `· ` 会原样进列表。
   - **复习页对照答案时（stage==='compare'）也亮出同一份重点**，可编辑/重新生成，复用 `KeyPointsPanel` + 相同的加载/保存逻辑。⚠️ 必须等 `stage==='compare'` 才加载+渲染 —— 重点从答案提炼，对照前出现等于提前泄底，违背复习页「答案进 compare 才进 DOM」的红线（`web/src/pages/Review.tsx`）。
+
+## 演示视频（2026-10-19，demo/ 目录）
+- 方案参考 myresume/jplearn：一条 Playwright test = 一条 screencast webm，自绘触摸点，ffmpeg/gifski 转 MP4/GIF，片头卡片拼接成 `demo/output/full/demo-full.mp4`（约 104s，5 条片段）。
+- 命令链：`npm run build` → `npx playwright install ffmpeg` → `npm run demo:pdf` → `npm run demo` → `npm run demo:convert`。详见 `demo/README.md`。
+- 三方隔离：端口 3300 / 库 `demo/.db/demo.db` / 账号 demo（webServer 内联注入，不读 .env）。产物 gitignore：`demo/output/ .db/ .auth/`；素材 `demo/assets/`（PDF+音频）进仓库。
+- 演示 PDF 由 `gen-demo-pdf.mjs` 现画（字号台阶 9.65/8.25px 匹配 parse.ts），60 题 0 告警；AI 重点/TTS 全部 mock（禁打真实 GLM）。
+- **最坑的一条：demo 配置里不能开 `isMobile:true`** —— 移动模拟压窄渲染宽度，screencast 按 390×844 录出来右侧一条黑边。保留 `hasTouch:true` 即可。

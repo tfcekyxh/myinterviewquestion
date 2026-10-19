@@ -22,3 +22,9 @@ playwright-report/
 
 # 本机 HTTPS 自签证书（私钥绝不进仓库）
 certs/
+
+# 演示录制：中间产物与成品（webm / mp4 / gif / 片头卡片）、演示库、免登录状态
+# 素材（demo/assets/ 下的 PDF 与音频）要进仓库，重录时直接用
+demo/output/
+demo/.db/
+demo/.auth/
