@@ -1,7 +1,7 @@
 // parsePoints 纯函数单测，用 Node 内置测试运行器（node --test）。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parsePoints } from './llm.js'
+import { parsePoints } from './llm.ts'
 
 test('parsePoints 去掉前缀符号与编号', () => {
   const out = parsePoints('· 第一点\n- 第二点\n3. 第三点\n\n  4、第四点')

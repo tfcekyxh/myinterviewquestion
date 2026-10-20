@@ -7,18 +7,18 @@ import express from 'express'
 import session from 'express-session'
 import path from 'node:path'
 import fs from 'node:fs'
-import { authRouter } from './routes/auth.js'
-import { questionsRouter } from './routes/questions.js'
-import { progressRouter } from './routes/progress.js'
-import { reviewsRouter } from './routes/reviews.js'
-import { backupRouter } from './routes/backup.js'
-import { ttsRouter } from './routes/tts.js'
-import { keypointsRouter } from './routes/keypoints.js'
-import { SqliteStore, pruneSessions } from './sessionStore.js'
+import { authRouter } from './routes/auth.ts'
+import { questionsRouter } from './routes/questions.ts'
+import { progressRouter } from './routes/progress.ts'
+import { reviewsRouter } from './routes/reviews.ts'
+import { backupRouter } from './routes/backup.ts'
+import { ttsRouter } from './routes/tts.ts'
+import { keypointsRouter } from './routes/keypoints.ts'
+import { SqliteStore, pruneSessions } from './sessionStore.ts'
 
 const DIST = path.resolve('web/dist')
 
-export function createApp() {
+export function createApp(): express.Express {
   const app = express()
 
   // 部署在反向代理后面，缺这行会让 secure Cookie 静默失效

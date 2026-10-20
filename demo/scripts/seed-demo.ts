@@ -19,7 +19,7 @@ import { DEMO_QUESTIONS } from './questions-demo.ts'
  *
  * 时序：Playwright 先起 webServer（命令里已 rm 掉旧 demo 库 → 服务启动即建库
  * 并建好账号），本脚本再通过 API 灌数据。库文件的建表与账号创建都由
- * server/index.js 启动时自动完成，这里不直接碰 SQLite。
+ * server/index.ts 启动时自动完成，这里不直接碰 SQLite。
  *
  * 灌三样东西：
  *  1. 题库 60 题（与演示 PDF 同源）—— 让片段 3-5 不依赖片段 2 也能单独跑

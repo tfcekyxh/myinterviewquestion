@@ -45,7 +45,7 @@ if (!password) {
 }
 
 const dbPath = path.join(os.tmpdir(), `smoke-backup-${Date.now()}.db`)
-const server = spawn(process.execPath, ['server/index.js'], {
+const server = spawn(process.execPath, ['server/index.ts'], {
   env: { ...process.env, NODE_ENV: 'test', PORT: String(PORT), DB_PATH: dbPath },
   stdio: ['ignore', 'pipe', 'pipe'],
 })

@@ -3,6 +3,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import type { SQLInputValue } from 'node:sqlite'
 
 const isTest = process.env.NODE_ENV === 'test'
 // DB_PATH 让冒烟脚本能自己开一个一次性的库，跑完就删。
@@ -24,8 +25,76 @@ fs.mkdirSync(path.dirname(dbPath), { recursive: true })
  */
 export const DB_PATH = dbPath
 
+// ── 行类型 ────────────────────────────────────────────────────────────
+// node:sqlite 的 get()/all() 只返回 Record<string, SQLOutputValue>，
+// 用下面的 row()/rows() 收敛成具体行类型。BLOB 列读出的是 Uint8Array。
+export interface UserRow {
+  id: number
+  account: string
+  pwd_hash: Uint8Array
+  pwd_salt: Uint8Array
+}
+export interface QuestionRow {
+  id: number
+  seq: number
+  question: string
+  answer: string
+  source_pdf: string | null
+}
+export interface CountRow {
+  c: number
+}
+export interface ProgressRow {
+  data: string
+  updated_at: number
+}
+export interface MetaRow {
+  value: string | null
+}
+export interface SessionRow {
+  sid: string
+  data: string
+  expires: number
+}
+export interface KeyPointRow {
+  seq: number
+  points: string
+  source: string
+  updated_at: number
+}
+
+/** 「刚背完的一轮」：seqs 是这一轮涉及的题号 */
+export interface ReviewRound {
+  seqs: number[]
+  count: number
+}
+
+/** progress 表里那一行 JSON 的结构。mode 库里可能存着任意值，由 normalize 收敛 */
+export interface ProgressData {
+  mode: string
+  posOrder: number
+  posRandom: number
+  randOrder: number[]
+  roundStart: number | null
+  lastRound: ReviewRound | null
+  total: number
+}
+export interface StoredProgress extends ProgressData {
+  updatedAt: number
+}
+
+/** 单行查询并收敛成具体行类型。必须在调用时读 `db`（还原后会重赋值），不能缓存连接 */
+export function row<T>(sql: string, ...params: SQLInputValue[]): T | undefined {
+  return db.prepare(sql).get(...params) as T | undefined
+}
+
+/** 多行查询 */
+export function rows<T>(sql: string, ...params: SQLInputValue[]): T[] {
+  return db.prepare(sql).all(...params) as T[]
+}
+
 /** 建表 + 老结构迁移。**每次打开连接都要跑一遍**：整库还原后的文件可能来自旧版本 */
-function ensureSchema(conn) {
+function ensureSchema(conn: DatabaseSync) {
   conn.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id        INTEGER PRIMARY KEY,
@@ -103,7 +172,7 @@ function open() {
     // 这里**不静默退到临时目录** —— 那样服务能起来、数据却随时会没，
     // 用户会以为存住了。宁可起不来，把问题暴露在日志里。
     throw new Error(
-      `打不开数据库文件 ${dbPath}：${e.message}。\n` +
+      `打不开数据库文件 ${dbPath}：${e instanceof Error ? e.message : String(e)}。\n` +
         `常见原因：部署环境的数据目录不可写。请确认运行目录下能创建 data/，` +
         `或用 DB_PATH 指向一个可写的路径。`,
     )
@@ -128,19 +197,19 @@ export function reopenDb() {
 }
 
 /** 读取进度；没存过或数据坏了都返回 null，由调用方给默认值 */
-export function readProgress() {
-  const row = db.prepare('SELECT data, updated_at FROM progress WHERE id = 1').get()
-  if (!row) return null
+export function readProgress(): StoredProgress | null {
+  const r = row<ProgressRow>('SELECT data, updated_at FROM progress WHERE id = 1')
+  if (!r) return null
   try {
-    const parsed = JSON.parse(row.data)
+    const parsed: unknown = JSON.parse(r.data)
     if (!parsed || typeof parsed !== 'object') return null
-    return { ...parsed, updatedAt: row.updated_at }
+    return { ...(parsed as ProgressData), updatedAt: r.updated_at }
   } catch {
     return null
   }
 }
 
-export function writeProgress(state) {
+export function writeProgress(state: ProgressData & { updatedAt?: number | null }) {
   const { updatedAt: _ignored, ...data } = state
   db.prepare('INSERT OR REPLACE INTO progress (id, data, updated_at) VALUES (1, ?, ?)').run(
     JSON.stringify(data),
@@ -163,11 +232,11 @@ export function resetDb() {
   `)
 }
 
-export function getMeta(key) {
-  const row = db.prepare('SELECT value FROM meta WHERE key = ?').get(key)
-  return row ? row.value : null
+export function getMeta(key: string): string | null {
+  const r = row<MetaRow>('SELECT value FROM meta WHERE key = ?', key)
+  return r ? r.value : null
 }
 
-export function setMeta(key, value) {
+export function setMeta(key: string, value: string) {
   db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run(key, value)
 }

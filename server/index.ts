@@ -1,8 +1,8 @@
 // 入口。启动硬性要求：读 process.env.PORT，绑 0.0.0.0。
 import fs from 'node:fs'
 import https from 'node:https'
-import { createApp } from './app.js'
-import { ensureUser } from './auth.js'
+import { createApp } from './app.ts'
+import { ensureUser } from './auth.ts'
 
 // 加载 .env（Node 21.7+ 内置）。文件不存在时静默跳过，账号密码会在下面报错提示
 try {
@@ -18,7 +18,7 @@ try {
   const user = ensureUser(account, password)
   console.log(`账号就绪：${user.account}`)
 } catch (e) {
-  console.error(`[启动失败] ${e.message}`)
+  console.error(`[启动失败] ${e instanceof Error ? e.message : String(e)}`)
   process.exit(1)
 }
 

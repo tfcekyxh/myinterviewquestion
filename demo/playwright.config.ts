@@ -80,7 +80,7 @@ export default defineConfig({
    * 替换题库、重置进度。库文件的建表与账号创建由服务启动时自动完成。
    *
    * ⚠️ Playwright 起 webServer 的 cwd 是本配置文件所在目录（demo/），
-   * 所以先 cd .. 回仓库根 —— server/index.js、DB_PATH、web/dist 都相对根解析。
+   * 所以先 cd .. 回仓库根 —— server/index.ts、DB_PATH、web/dist 都相对根解析。
    *
    * 前置条件：web/dist 已构建（globalSetup 会检查，缺了会带着安装命令报错）。
    */
@@ -88,7 +88,7 @@ export default defineConfig({
     command:
       `cd .. && rm -f ${DEMO_DB_PATH} ${DEMO_DB_PATH}-journal ${DEMO_DB_PATH}-wal ${DEMO_DB_PATH}-shm && ` +
       `APP_ACCOUNT=${DEMO_ACCOUNT} APP_PASSWORD=${DEMO_PASSWORD} SESSION_SECRET=demo-recording-secret ` +
-      `DB_PATH=${DEMO_DB_PATH} PORT=${PORT} node server/index.js`,
+      `DB_PATH=${DEMO_DB_PATH} PORT=${PORT} node server/index.ts`,
     url: BASE_URL,
     // 必须 false：若为 true 会复用上一次遗留的服务，而它的库里已经有数据，
     // 「首页显示已背 18/60」这类断言就会莫名其妙失败（e2e 踩过）

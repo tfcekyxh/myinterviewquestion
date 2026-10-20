@@ -8,10 +8,12 @@
 //   校验（先确认上传的文件真的是一个能用的库）→ 关连接 → 旧文件改名留后路 →
 //   落新文件 → 重开连接；任何一步失败都把后路文件换回去。
 import { Router } from 'express'
+import type { Request, Response } from 'express'
 import fs from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
-import { requireAuth } from './auth.js'
-import { DB_PATH, closeDb, db, reopenDb } from '../db.js'
+import { requireAuth } from './auth.ts'
+import { DB_PATH, closeDb, db, reopenDb, row } from '../db.ts'
+import type { SessionRow } from '../db.ts'
 
 export const backupRouter = Router()
 
@@ -25,7 +27,7 @@ backupRouter.use(requireAuth)
  * 直接 copy 正在被写入的 .db 文件，理论上可能拿到写了一半的状态；
  * VACUUM INTO 会在数据库自己的事务语义下产出完整可用的快照，且顺手把碎片压掉。
  */
-backupRouter.get('/', (_req, res) => {
+backupRouter.get('/', (_req: Request, res: Response) => {
   const snap = `${DB_PATH}.snapshot-${process.pid}`
   fs.rmSync(snap, { force: true })
 
@@ -33,12 +35,12 @@ backupRouter.get('/', (_req, res) => {
   try {
     db.exec(`VACUUM INTO '${snap.replace(/'/g, "''")}'`)
   } catch (e) {
-    console.warn('[备份] VACUUM INTO 不可用，退回直接读文件：', e.message)
+    console.warn('[备份] VACUUM INTO 不可用，退回直接读文件：', e instanceof Error ? e.message : e)
     file = DB_PATH
   }
 
   const stamp = new Date()
-  const pad = (n) => String(n).padStart(2, '0')
+  const pad = (n: number) => String(n).padStart(2, '0')
   const name = `面试题背诵-备份-${stamp.getFullYear()}${pad(stamp.getMonth() + 1)}${pad(stamp.getDate())}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}.db`
 
   res.download(file, name, (err) => {
@@ -49,8 +51,9 @@ backupRouter.get('/', (_req, res) => {
 })
 
 /** 还原。body 是整个 .db 文件的原始字节 */
-backupRouter.post('/', (req, res) => {
-  const buf = Buffer.isBuffer(req.body) ? req.body : null
+backupRouter.post('/', (req: Request, res: Response) => {
+  const body: unknown = req.body
+  const buf = Buffer.isBuffer(body) ? body : null
   if (!buf || buf.length === 0) {
     return res.status(400).json({ error: '没有收到文件，请选择导出的 .db 文件' })
   }
@@ -70,31 +73,29 @@ backupRouter.post('/', (req, res) => {
     const tables = probe
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
       .all()
-      .map((r) => r.name)
+      .map((r) => String(r.name))
     const missing = REQUIRED_TABLES.filter((t) => !tables.includes(t))
-    if (missing.length) {
+    if (missing.length > 0) {
       probe.close()
       fs.rmSync(incoming, { force: true })
       return res.status(400).json({ error: `这个文件缺表（${missing.join('、')}），不像是本应用的备份` })
     }
     // 真正读一次，确认页没坏
-    total = probe.prepare('SELECT COUNT(*) AS c FROM questions').get().c
+    const count = probe.prepare('SELECT COUNT(*) AS c FROM questions').get()
+    total = Number(count?.c ?? 0)
     probe.close()
   } catch (e) {
     fs.rmSync(incoming, { force: true })
-    console.error('[还原] 文件打不开：', e.message)
+    console.error('[还原] 文件打不开：', e instanceof Error ? e.message : e)
     return res.status(400).json({ error: '这个文件打不开，可能已经损坏' })
   }
 
   // ── 2. 换文件。顺序不能颠倒，且每一步都要能退回去 ──
   // 还原前的登录态：库被换掉后 sessions 表也换成了备份里的，
   // 不把它写回去的话用户会被莫名其妙踢下线，看起来像「还原弄坏了」。
-  const keep = db
-    .prepare('SELECT sid, data, expires FROM sessions WHERE sid = ?')
-    .get(req.sessionID)
+  const keep = row<SessionRow>('SELECT sid, data, expires FROM sessions WHERE sid = ?', req.sessionID)
 
   const backupOld = `${DB_PATH}.bak`
-  let ok = false
   try {
     closeDb()
     fs.rmSync(backupOld, { force: true })
@@ -104,14 +105,13 @@ backupRouter.post('/', (req, res) => {
     for (const suffix of ['-journal', '-wal', '-shm']) fs.rmSync(DB_PATH + suffix, { force: true })
 
     reopenDb()
-    ok = true
   } catch (e) {
-    console.error('[还原] 替换失败，正在回滚：', e.message)
+    console.error('[还原] 替换失败，正在回滚：', e instanceof Error ? e.message : e)
     try {
       if (fs.existsSync(backupOld) && !fs.existsSync(DB_PATH)) fs.renameSync(backupOld, DB_PATH)
       reopenDb()
     } catch (e2) {
-      console.error('[还原] 回滚也失败了：', e2.message)
+      console.error('[还原] 回滚也失败了：', e2 instanceof Error ? e2.message : e2)
     }
     fs.rmSync(incoming, { force: true })
     return res.status(500).json({ error: '还原失败，数据未被修改' })
@@ -120,7 +120,7 @@ backupRouter.post('/', (req, res) => {
   // ── 3. 把登录态写回新库 ──
   try {
     const userId = req.session?.userId
-    if (keep && Number.isInteger(userId) && db.prepare('SELECT 1 FROM users WHERE id = ?').get(userId)) {
+    if (keep && typeof userId === 'number' && Number.isInteger(userId) && db.prepare('SELECT 1 FROM users WHERE id = ?').get(userId)) {
       db.prepare('INSERT OR REPLACE INTO sessions (sid, data, expires) VALUES (?, ?, ?)').run(
         keep.sid,
         keep.data,
@@ -129,7 +129,7 @@ backupRouter.post('/', (req, res) => {
     }
   } catch (e) {
     // 写不回去只是会掉线，不影响还原本身，不把它当失败
-    console.warn('[还原] 保留登录态失败：', e.message)
+    console.warn('[还原] 保留登录态失败：', e instanceof Error ? e.message : e)
   }
 
   res.json({ ok: true, total })

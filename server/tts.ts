@@ -10,7 +10,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { EdgeTTS } from 'node-edge-tts'
-import { DB_PATH, db } from './db.js'
+import { DB_PATH, db, row } from './db.ts'
+import type { QuestionRow } from './db.ts'
 
 const VOICE = 'zh-CN-XiaoxiaoNeural'
 const OUTPUT_FORMAT = 'audio-24khz-48kbitrate-mono-mp3'
@@ -19,6 +20,19 @@ const TIMEOUT_MS = 30_000
 // 缓存上限。答案音频约 600KB/段，300MB 大约能放 500 段 —— 超过就从最久没用过的开始删。
 const MAX_TOTAL_BYTES = 300 * 1024 * 1024
 
+type TtsPart = 'q' | 'a'
+
+/** 给错误挂业务 code，路由靠它区分 404 / 503 */
+interface CodedError extends Error {
+  code?: string
+}
+
+function codedError(message: string, code: string): CodedError {
+  const e: CodedError = new Error(message)
+  e.code = code
+  return e
+}
+
 // 跟着数据库走：冒烟脚本用 DB_PATH 开临时库时，音频也落在临时目录，不会污染 data/
 const DIR = path.join(path.dirname(DB_PATH), 'tts')
 
@@ -26,15 +40,15 @@ function ensureDir() {
   fs.mkdirSync(DIR, { recursive: true })
 }
 
-function audioPath(seq, part) {
+function audioPath(seq: number, part: TtsPart) {
   return path.join(DIR, `${seq}-${part}.mp3`)
 }
 
 /** 取题目/答案文本并做一点清洗：PDF 抽出来的文本空白很乱，直接喂给 TTS 会念出奇怪的停顿 */
-function textOf(seq, part) {
-  const row = db.prepare('SELECT question, answer FROM questions WHERE seq = ?').get(seq)
-  if (!row) return null
-  const raw = part === 'q' ? row.question : row.answer
+function textOf(seq: number, part: TtsPart): string | null {
+  const r = row<QuestionRow>('SELECT question, answer FROM questions WHERE seq = ?', seq)
+  if (!r) return null
+  const raw = part === 'q' ? r.question : r.answer
   return String(raw ?? '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -71,9 +85,9 @@ function pruneIfNeeded() {
 }
 
 // 同一个 key 只生成一次：连点下一题时，并发生成会把同一个文件写两遍
-const inflight = new Map()
+const inflight = new Map<string, Promise<Buffer>>()
 
-async function generate(seq, part, text) {
+async function generate(seq: number, part: TtsPart, text: string) {
   const dest = audioPath(seq, part)
   // 先写临时文件再改名，避免生成到一半被别的请求读到半截音频
   const tmp = `${dest}.${process.pid}.tmp`
@@ -95,10 +109,9 @@ async function generate(seq, part, text) {
  * 拿一段音频。命中缓存直接读文件（并刷新 mtime 让 LRU 知道它刚被用过），
  * 否则现生成一次。
  *
- * @returns {Promise<Buffer>}
- * @throws 题目不存在 / 生成失败（多半是外网不通）
+ * @throws 题目不存在（code='NO_QUESTION'）/ 生成失败（多半是外网不通）
  */
-export async function getAudio(seq, part) {
+export async function getAudio(seq: number, part: TtsPart): Promise<Buffer> {
   const key = `${seq}:${part}`
 
   try {
@@ -110,19 +123,16 @@ export async function getAudio(seq, part) {
     // 没缓存，往下走
   }
 
-  if (inflight.has(key)) return inflight.get(key)
+  const existing = inflight.get(key)
+  if (existing) return existing
 
   const text = textOf(seq, part)
   // code 让路由能分得清「这题根本不存在」（404）和「现在生不出来」（503）
   if (text === null) {
-    const e = new Error(`没有第 ${seq} 题`)
-    e.code = 'NO_QUESTION'
-    throw e
+    throw codedError(`没有第 ${seq} 题`, 'NO_QUESTION')
   }
   if (!text) {
-    const e = new Error(`第 ${seq} 题的${part === 'q' ? '题干' : '答案'}是空的`)
-    e.code = 'EMPTY_TEXT'
-    throw e
+    throw codedError(`第 ${seq} 题的${part === 'q' ? '题干' : '答案'}是空的`, 'EMPTY_TEXT')
   }
 
   const task = (async () => {

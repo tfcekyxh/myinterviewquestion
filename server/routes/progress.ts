@@ -4,8 +4,10 @@
 //   ued.md S4 要求「切到随机模式时记住当前题位置，切回顺序可继续」。
 //   只存一个 position 的话，一切换模式就会把另一种模式的进度顶掉。
 import { Router } from 'express'
-import { requireAuth } from './auth.js'
-import { db, readProgress, writeProgress, clearProgress } from '../db.js'
+import type { Request, Response } from 'express'
+import { requireAuth } from './auth.ts'
+import { db, readProgress, writeProgress, clearProgress, row } from '../db.ts'
+import type { ProgressData, StoredProgress } from '../db.ts'
 
 export const progressRouter = Router()
 
@@ -13,8 +15,12 @@ progressRouter.use(requireAuth)
 
 const DEFAULT_MODE = 'order'
 
-function bankTotal() {
-  return db.prepare('SELECT COUNT(*) AS c FROM questions').get().c
+interface ProgressPayload extends ProgressData {
+  updatedAt: number | null
+}
+
+function bankTotal(): number {
+  return row<{ c: number }>('SELECT COUNT(*) AS c FROM questions')?.c ?? 0
 }
 
 /**
@@ -22,8 +28,8 @@ function bankTotal() {
  * 取到 total 是合法状态 —— 表示这一轮背完了（ued.md S4 的完成提示），
  * 所以不能像下标那样夹到 total-1。
  */
-function clamp(n, total) {
-  if (!Number.isInteger(n) || n < 0) return 0
+function clamp(n: unknown, total: number): number {
+  if (typeof n !== 'number' || !Number.isInteger(n) || n < 0) return 0
   return Math.min(n, Math.max(0, total))
 }
 
@@ -31,9 +37,17 @@ function clamp(n, total) {
  * 把任何来源的进度都收敛成「一定能用」的状态。
  * 关键一条：题库规模变了就把位置归零 —— 换题库后旧位置指向的是别的题，比丢掉更糟。
  */
-function normalize(state, total) {
+function normalize(state: Partial<StoredProgress> | null | undefined, total: number): ProgressData {
   const s = state ?? {}
-  const empty = { mode: DEFAULT_MODE, posOrder: 0, posRandom: 0, randOrder: [], roundStart: null, lastRound: null, total }
+  const empty: ProgressData = {
+    mode: DEFAULT_MODE,
+    posOrder: 0,
+    posRandom: 0,
+    randOrder: [],
+    roundStart: null,
+    lastRound: null,
+    total,
+  }
   if (s.total !== total) return empty
 
   const mode = s.mode === 'random' ? 'random' : DEFAULT_MODE
@@ -47,19 +61,27 @@ function normalize(state, total) {
       ? { seqs: lastSeqs.map(Number), count: lastSeqs.length }
       : null
 
+  const roundStartRaw = s.roundStart
+  const roundStart =
+    typeof roundStartRaw === 'number' &&
+    Number.isInteger(roundStartRaw) &&
+    roundStartRaw >= 0 &&
+    roundStartRaw < total
+      ? roundStartRaw
+      : null
+
   return {
     mode,
     posOrder: clamp(s.posOrder, total),
     posRandom: randOrder.length ? clamp(s.posRandom, total) : 0,
     randOrder,
-    roundStart:
-      Number.isInteger(s.roundStart) && s.roundStart >= 0 && s.roundStart < total ? s.roundStart : null,
+    roundStart,
     lastRound,
     total,
   }
 }
 
-function rangeSeqs(total) {
+function rangeSeqs(total: number): number[] {
   return Array.from({ length: total }, (_, i) => i + 1)
 }
 
@@ -71,7 +93,7 @@ function rangeSeqs(total) {
  *   这一轮就是 129–240，而不是永远等于整个题库。
  *   done 到达 total（背完）时结算，并清空 roundStart，下一轮重新计。
  */
-function settleRound(s) {
+function settleRound(s: ProgressData): ProgressData {
   const done = s.mode === 'order' ? s.posOrder : s.posRandom
   if (s.total <= 0 || done < s.total) return s
   if (s.roundStart === null) return s // 没有进行中的起点，说明这一轮已经结算过了
@@ -83,22 +105,22 @@ function settleRound(s) {
   return { ...s, roundStart: null, lastRound: { seqs: seqs.slice(start), count: s.total - start } }
 }
 
-function payload() {
+function payload(): ProgressPayload {
   const total = bankTotal()
   const stored = readProgress()
   const state = normalize(stored, total)
   return { ...state, total, updatedAt: stored?.updatedAt ?? null }
 }
 
-progressRouter.get('/', (_req, res) => {
+progressRouter.get('/', (_req: Request, res: Response) => {
   res.json(payload())
 })
 
-progressRouter.put('/', (req, res) => {
+progressRouter.put('/', (req: Request, res: Response) => {
   const total = bankTotal()
   const current = normalize(readProgress(), total)
   const body = req.body ?? {}
-  const next = { ...current }
+  const next: ProgressData = { ...current }
 
   if (body.mode === 'order' || body.mode === 'random') next.mode = body.mode
   if (Number.isInteger(body.posOrder) && body.posOrder >= 0) next.posOrder = body.posOrder
@@ -116,7 +138,7 @@ progressRouter.put('/', (req, res) => {
 })
 
 /** 重置进度（「我的」页用） */
-progressRouter.delete('/', (_req, res) => {
+progressRouter.delete('/', (_req: Request, res: Response) => {
   clearProgress()
   res.json({ ok: true })
 })

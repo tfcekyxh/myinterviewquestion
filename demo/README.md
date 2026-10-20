@@ -57,7 +57,7 @@ globalSetup 通过 API 灌：题库 60 题（与演示 PDF 同源）+ 进度 18/
    应用实际渲染宽度被压窄，screencast 仍按 390 录 → 右边补黑。
    只要 `hasTouch: true`（触摸事件够用），**不要开 isMobile**。
 2. **webServer 的 cwd 是 demo/**（配置文件所在目录），命令里要先 `cd ..`，
-   否则 `node server/index.js` 找不到。
+   否则 `node server/index.ts` 找不到。
 3. **Playwright 自带 ffmpeg 要单独装**：`npx playwright install ffmpeg`
    （版本跟 @playwright/test 走，1.64 要 ffmpeg-1013）。
 4. **自动阅读开关是 `role="switch"` 不是 button**（Recite.tsx 里 aria-checked），

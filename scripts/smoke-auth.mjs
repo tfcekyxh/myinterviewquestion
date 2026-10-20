@@ -1,5 +1,5 @@
 // P1 冒烟：登录链路的接口级验证（curl 在本机会走代理，这里用 fetch 直连，并显式绕过）
-// 用法：先启动服务（npm run dev:server 或 PORT=3000 node server/index.js），再跑 node scripts/smoke-auth.mjs
+// 用法：先启动服务（npm run dev:server 或 PORT=3000 node server/index.ts），再跑 node scripts/smoke-auth.mjs
 const BASE = process.env.BASE ?? 'http://127.0.0.1:3000'
 const account = process.env.APP_ACCOUNT ?? 'admin'
 const password = process.env.APP_PASSWORD

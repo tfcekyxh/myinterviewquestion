@@ -35,7 +35,7 @@ export default defineConfig({
   ],
   webServer: {
     // 每次跑 e2e 都用一份全新的 test.db，绝不碰 data/app.db
-    command: `rm -f data/test.db && NODE_ENV=test PORT=${PORT} node server/index.js`,
+    command: `rm -f data/test.db && NODE_ENV=test PORT=${PORT} node server/index.ts`,
     url: BASE, // 探测根路径，404 也算未就绪
     // 必须 false：若为 true 会复用上一次遗留的服务，而它的 test.db 里已经有数据，
     // 「未导入时首页是空状态」这类用例就会莫名其妙失败（踩过）

@@ -1,30 +1,38 @@
 // 题库：查询规模、批量入库。
 // 入库是「整批替换」：换题库后旧的进度与题一律作废，必须在同一事务里完成。
 import { Router } from 'express'
-import { requireAuth } from './auth.js'
-import { db, getMeta, setMeta } from '../db.js'
-import { clearAudioCache } from '../tts.js'
+import type { Request, Response } from 'express'
+import { requireAuth } from './auth.ts'
+import { db, getMeta, setMeta, row, rows } from '../db.ts'
+import type { QuestionRow } from '../db.ts'
+import { clearAudioCache } from '../tts.ts'
 
 export const questionsRouter = Router()
 
 questionsRouter.use(requireAuth)
 
+/** 入库时对每道题的结构要求（answer 允许缺省） */
+interface ImportedQuestion {
+  question: string
+  answer?: string | null
+}
+
 /** 题库概况。带 ?full=1 时同时返回全部题目（背诵页用） */
-questionsRouter.get('/', (req, res) => {
-  const total = db.prepare('SELECT COUNT(*) AS c FROM questions').get().c
+questionsRouter.get('/', (req: Request, res: Response) => {
+  const total = row<{ c: number }>('SELECT COUNT(*) AS c FROM questions')?.c ?? 0
   const body = {
     total,
     source: getMeta('source_pdf'),
     importedAt: Number(getMeta('imported_at') ?? 0) || null,
   }
   if (req.query.full === '1') {
-    const rows = db.prepare('SELECT seq, question, answer FROM questions ORDER BY seq').all()
-    return res.json({ ...body, questions: rows })
+    const list = rows<QuestionRow>('SELECT seq, question, answer FROM questions ORDER BY seq')
+    return res.json({ ...body, questions: list })
   }
   res.json(body)
 })
 
-questionsRouter.post('/', (req, res) => {
+questionsRouter.post('/', (req: Request, res: Response) => {
   const { source, questions } = req.body ?? {}
 
   if (!Array.isArray(questions) || questions.length === 0) {
@@ -33,11 +41,13 @@ questionsRouter.post('/', (req, res) => {
   if (questions.length > 5000) {
     return res.status(400).json({ error: '题目数量过多（> 5000），请确认是不是解析错了' })
   }
-  for (const q of questions) {
+  for (const q of questions as ImportedQuestion[]) {
     if (!q || typeof q.question !== 'string' || !q.question.trim()) {
       return res.status(400).json({ error: '存在空的题干，请检查解析结果' })
     }
   }
+
+  const sourceStr = typeof source === 'string' ? source : null
 
   try {
     db.exec('BEGIN')
@@ -52,10 +62,10 @@ questionsRouter.post('/', (req, res) => {
     const insert = db.prepare(
       'INSERT INTO questions (seq, question, answer, source_pdf) VALUES (?, ?, ?, ?)',
     )
-    questions.forEach((q, i) => {
-      insert.run(i + 1, q.question.trim(), String(q.answer ?? ''), typeof source === 'string' ? source : null)
+    questions.forEach((q: ImportedQuestion, i: number) => {
+      insert.run(i + 1, q.question.trim(), String(q.answer ?? ''), sourceStr)
     })
-    setMeta('source_pdf', typeof source === 'string' ? source : '')
+    setMeta('source_pdf', sourceStr ?? '')
     setMeta('imported_at', String(Date.now()))
     db.exec('COMMIT')
     // 题目全换了，旧音频指向的是已经不存在的题，一律作废（下次翻到会重新生成）

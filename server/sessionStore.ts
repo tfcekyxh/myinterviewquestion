@@ -1,25 +1,31 @@
 // 自写 SqliteStore：把 session 存进同一个 SQLite 文件，不用额外维护任何东西。
 // 不用 connect-sqlite3 —— 它源码里 require('sqlite3')（原生模块），却没在 package.json 声明。
 import session from 'express-session'
-import { db } from './db.js'
+import type { SessionData } from 'express-session'
+import { db } from './db.ts'
 
 const DEFAULT_TTL = 7 * 864e5 // 7 天
 
+type SessionCallback = (err?: unknown) => void
+type GetCallback = (err: unknown, session?: SessionData | null) => void
+
 export class SqliteStore extends session.Store {
-  get(sid, cb) {
+  get(sid: string, cb: GetCallback): void {
     try {
-      const row = db.prepare('SELECT data, expires FROM sessions WHERE sid = ?').get(sid)
-      if (!row) return cb(null, null)
-      if (row.expires < Date.now()) {
+      const r = db.prepare('SELECT data, expires FROM sessions WHERE sid = ?').get(sid) as
+        | { data: string; expires: number }
+        | undefined
+      if (!r) return cb(null, null)
+      if (r.expires < Date.now()) {
         return this.destroy(sid, () => cb(null, null))
       }
-      cb(null, JSON.parse(row.data))
+      cb(null, JSON.parse(r.data))
     } catch (e) {
       cb(e)
     }
   }
 
-  set(sid, sess, cb) {
+  set(sid: string, sess: SessionData, cb: SessionCallback): void {
     try {
       const expires = sess?.cookie?.expires
         ? new Date(sess.cookie.expires).getTime()
@@ -29,16 +35,16 @@ export class SqliteStore extends session.Store {
         JSON.stringify(sess),
         expires,
       )
-      cb(null)
+      cb()
     } catch (e) {
       cb(e)
     }
   }
 
-  destroy(sid, cb) {
+  destroy(sid: string, cb: SessionCallback): void {
     try {
       db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid)
-      cb(null)
+      cb()
     } catch (e) {
       cb(e)
     }

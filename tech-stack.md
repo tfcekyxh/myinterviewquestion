@@ -496,7 +496,7 @@ myInterviewQuestion/
   "test":       "vitest run",
   "test:watch": "vitest",
   "test:e2e":   "playwright test",
-  "start:test": "NODE_ENV=test node server/index.js"
+  "start:test": "NODE_ENV=test node server/index.ts"
 }
 ```
 

@@ -12,7 +12,7 @@ const MAX_ATTEMPTS = Number(process.env.LLM_MAX_ATTEMPTS) || 3
 const BACKOFF_MS = Number(process.env.LLM_BACKOFF_MS) || 2500
 
 /** 服务端是否配了 AI 密钥。没配时前端优雅降级，不挡背诵。 */
-export function isLlmConfigured() {
+export function isLlmConfigured(): boolean {
   return Boolean(API_KEY)
 }
 
@@ -20,7 +20,7 @@ export function isLlmConfigured() {
  * 把模型输出解析成要点数组：每行一条，去掉前缀符号（· - * •）和编号（1. 2、3)）。
  * 纯函数，便于单测，也保证不同模型的输出格式都能收敛成统一结构。
  */
-export function parsePoints(text) {
+export function parsePoints(text: string): string[] {
   if (!text) return []
   return text
     .split('\n')
@@ -39,8 +39,8 @@ const SYSTEM_PROMPT = `你是面试备考助手。用户会给你一道面试题
 4) 用简体中文。`
 
 // 单并发锁：免费档只允许 1 个在途请求，必须排队，否则会 429 / 失败。
-let lock = Promise.resolve()
-function serialize(task) {
+let lock: Promise<void> = Promise.resolve()
+function serialize<T>(task: () => Promise<T>): Promise<T> {
   const run = lock.then(task, task)
   // 不管成功失败都把锁往下传，别让一次报错把整条链卡死
   lock = run.then(
@@ -54,10 +54,10 @@ function serialize(task) {
  * 调用大模型，返回要点字符串数组。
  * @throws 未配置密钥抛 'AI_NOT_CONFIGURED'；网络/模型异常抛普通 Error（由路由转 502）。
  */
-export async function summarizeKeyPoints(question, answer) {
+export async function summarizeKeyPoints(question: string, answer: string): Promise<string[]> {
   if (!API_KEY) throw new Error('AI_NOT_CONFIGURED')
   return serialize(async () => {
-    let lastErr = new Error('LLM 调用失败')
+    let lastErr: Error = new Error('LLM 调用失败')
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       // 第二次起退避，错开限流高峰
       if (attempt > 0) await new Promise((r) => setTimeout(r, BACKOFF_MS * attempt))
@@ -83,8 +83,11 @@ export async function summarizeKeyPoints(question, answer) {
           }),
         })
         if (res.ok) {
-          const json = await res.json()
-          const content = json?.choices?.[0]?.message?.content ?? ''
+          // undici 的 res.json() 是 Promise<unknown>，显式收敛成我们要的形状
+          const json = (await res.json()) as {
+            choices?: Array<{ message?: { content?: string } }>
+          }
+          const content = json.choices?.[0]?.message?.content ?? ''
           const points = parsePoints(content)
           if (points.length === 0) throw new Error('LLM 返回为空')
           return points
@@ -96,9 +99,9 @@ export async function summarizeKeyPoints(question, answer) {
         }
         lastErr = new Error(`LLM ${res.status}: ${body.slice(0, 200)}`)
       } catch (err) {
-        if (err.name === 'AbortError') lastErr = new Error('LLM 请求超时')
+        if (err instanceof Error && err.name === 'AbortError') lastErr = new Error('LLM 请求超时')
         else if (nonRetryable) throw err
-        else lastErr = err
+        else lastErr = err instanceof Error ? err : new Error(String(err))
       } finally {
         clearTimeout(timer)
       }
