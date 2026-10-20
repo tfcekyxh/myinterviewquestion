@@ -127,7 +127,9 @@ git 主分支 `main`；忽略 `node_modules/`、`dist/`、`.env*`、`certs/`、`
 - P0–P5 全部完成并上线；真机已验。
 - **后端磁盘持久性未验证**（重发后 SQLite 是否还在）。线上有真实数据（200 题 + 进度 + 7 条复习记录）。
 - 2026-10-19：**登录安全加固 P0 完成**（`server/loginLimit.ts` 按账号限流：15 分钟 5 次失败锁 10 分钟，429+Retry-After；失败/锁定打日志）+ **SESSION_SECRET 换强随机**。本地 `.env` 已建。
-- 2026-10-19：**server 全量迁移 TS**（18 个文件 .js→.ts，零构建直跑，`tsconfig.server.json`）。已于 2026-10-20 提交 `c4a7754` 并推送 origin/main（push ≠ 部署，线上仍跑旧 startCmd，待发布，注意 Node ≥22.18）。- 语音转文字（暂缓）：iOS Safari `webkitSpeechRecognition`，必须 Safari + HTTPS + 联网，**只能实时听麦不能转写文件**。
+- 2026-10-19：**server 全量迁移 TS**（18 个文件 .js→.ts，零构建直跑，`tsconfig.server.json`）。已于 2026-10-20 提交 `c4a7754` 并推送 origin/main（push ≠ 部署，线上仍跑旧 startCmd，待发布，注意 Node ≥22.18）。
+- 2026-10-20：**已完成部署**（`88dfbf0` 含 genie 标记）。startCmd 用 `node --experimental-strip-types server/index.ts`（flag 在 Node 22.22/25.9 均验证可用，覆盖平台 22.6+，比裸跑 .ts 稳）。发后全验证过：登录 200、题数 200、进度/重点缓存原样、限流器在线实证（假账号 5 次失败→429）。
+  ⚠️ **startCmd 里 npm run build 的 .ts 依赖 flag**——以后改入口名要连 flag 一起改；下次重发前必须先拉线上库覆盖本地 `data/app.db`（curl -o 前先 mkdir -p data，踩过）。- 语音转文字（暂缓）：iOS Safari `webkitSpeechRecognition`，必须 Safari + HTTPS + 联网，**只能实时听麦不能转写文件**。
 - 明确不做：错题清单 / 按章节选范围（要做先改 `project-scope.md`）。
 - 2026-10-17：用户在提**背诵页 TTS 自动朗读题目与答案**的需求（待定方案）。
 - 2026-10-19：**背诵页「AI 回答重点」上线**（GLM-4.7-Flash，OpenAI 兼容）。详见 `server/llm.ts` + `server/routes/keypoints.ts` + `web/src/components/KeyPointsPanel.tsx`。

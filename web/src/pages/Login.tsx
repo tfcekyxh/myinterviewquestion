@@ -6,7 +6,8 @@ interface Props {
 }
 
 export default function Login({ onSuccess }: Props) {
-  const [account, setAccount] = useState('')
+  // 单账号应用：账号默认填 admin，省得每次登录都打一遍
+  const [account, setAccount] = useState('admin')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)

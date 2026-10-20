@@ -17,6 +17,7 @@ describe('Login', () => {
     render(<Login onSuccess={vi.fn()} />)
     expect(screen.getByText('面试题背诵')).toBeInTheDocument()
     expect(screen.getByLabelText('账号')).toBeInTheDocument()
+    expect(screen.getByLabelText('账号')).toHaveValue('admin')
     expect(screen.getByLabelText('密码')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '登录' })).toBeInTheDocument()
   })
@@ -31,6 +32,8 @@ describe('Login', () => {
   it('密码错误：显示服务端返回的错误，不弹窗', async () => {
     mockedLogin.mockRejectedValue(new Error('账号或密码不正确'))
     render(<Login onSuccess={vi.fn()} />)
+    // 账号框默认有 admin，先清空再输入，贴近真实用户改账号的场景
+    await userEvent.clear(screen.getByLabelText('账号'))
     await userEvent.type(screen.getByLabelText('账号'), 'admin')
     await userEvent.type(screen.getByLabelText('密码'), 'bad')
     await userEvent.click(screen.getByRole('button', { name: '登录' }))
@@ -41,6 +44,7 @@ describe('Login', () => {
     mockedLogin.mockResolvedValue({ userId: 1, account: 'admin' })
     const onSuccess = vi.fn()
     render(<Login onSuccess={onSuccess} />)
+    await userEvent.clear(screen.getByLabelText('账号'))
     await userEvent.type(screen.getByLabelText('账号'), 'admin')
     await userEvent.type(screen.getByLabelText('密码'), 'pw')
     await userEvent.click(screen.getByRole('button', { name: '登录' }))
